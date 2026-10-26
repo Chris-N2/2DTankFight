@@ -78,7 +78,7 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
 function moveTank(state: MatchState, tank: TankState, input: TankInputLike): void {
   const cfg = state.config;
   const dt = tickDuration(cfg);
-  tank.heading = wrapAngle(tank.heading + input.turn * cfg.tankTurnRate * dt);
+  tank.heading = wrapAngle(tank.heading + cleanTurn(input.turn) * cfg.tankTurnRate * dt);
 
   const speed = input.throttle > 0 ? cfg.tankSpeed : input.throttle < 0 ? -cfg.tankReverseSpeed : 0;
   if (speed === 0) return;
@@ -92,6 +92,15 @@ function moveTank(state: MatchState, tank: TankState, input: TankInputLike): voi
 }
 
 type TankInputLike = { throttle: number; turn: number };
+
+/**
+ * Inputs may one day arrive from untrusted network clients, and a NaN in a heading would spread into every
+ * later tick, so the turn amount is cleaned here, where every input passes through.
+ */
+function cleanTurn(turn: number): number {
+  if (!Number.isFinite(turn)) return 0;
+  return Math.max(-1, Math.min(1, turn));
+}
 
 function isBlocked(state: MatchState, tank: TankState, nx: number, ny: number): boolean {
   const r = state.config.tankRadius;

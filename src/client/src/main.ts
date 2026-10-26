@@ -12,7 +12,8 @@ import {
   type SimEvent,
 } from '@tank/sim';
 import { Effects } from './effects';
-import { KeyboardState } from './input';
+import { inputFromGamepad, isActive, MenuInput, type GamepadSnapshot, type MenuAction } from './gamepad';
+import { combineInputs, FireLatch, GAME_KEYS, KeyboardState } from './input';
 import { FixedStepLoop } from './loop';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
 import { bannerFor, gameOverText, hpPips, roundLine, scoreLine } from './screens';
@@ -23,6 +24,8 @@ const GO_MS = 700;
 const RESULT_DELAY_MS = 1200;
 /** Keys can't start a new game this soon after the result screen appears, so a fire-hammering player sees it. */
 const RESULT_KEY_GRACE_MS = 600;
+
+type InputMode = 'keyboard' | 'mouse' | 'gamepad';
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -39,6 +42,11 @@ class Game {
   private enterLockedUntil = 0;
   private selfInflicted = false;
   private readonly keyboard = new KeyboardState();
+  private readonly menu = new MenuInput();
+  private readonly fireLatch = new FireLatch();
+  private pads: GamepadSnapshot[] = [];
+  /** True while the player is driving with a gamepad, so unplugging it mid-round pauses the game. */
+  private gamepadInUse = false;
   private readonly effects = new Effects();
   private readonly renderer = new Renderer(
     el<HTMLCanvasElement>('game'),
@@ -65,7 +73,18 @@ class Game {
     el('again').addEventListener('click', () => this.start());
     el('settings').addEventListener('click', () => this.showSetup());
 
-    window.addEventListener('keydown', (e) => this.onKeyDown(e));
+    window.addEventListener('keydown', (e) => {
+      this.setInputMode('keyboard');
+      if (GAME_KEYS.has(e.code)) this.gamepadInUse = false;
+      this.onKeyDown(e);
+    });
+    window.addEventListener('mousemove', () => this.setInputMode('mouse'));
+    window.addEventListener('mousedown', () => this.setInputMode('mouse'));
+    window.addEventListener('gamepadconnected', () => this.updatePadStatus());
+    window.addEventListener('gamepaddisconnected', () => {
+      this.updatePadStatus();
+      if (this.gamepadInUse) this.autoPause();
+    });
     window.addEventListener('keyup', (e) => this.keyboard.onKeyUp(e));
     window.addEventListener('resize', () => this.renderer.resize());
     window.addEventListener('blur', () => this.autoPause());
@@ -74,6 +93,7 @@ class Game {
     });
 
     el('start').focus();
+    this.updatePadStatus();
     requestAnimationFrame((now) => this.frame(now));
   }
 
@@ -91,6 +111,7 @@ class Game {
     this.loop.setPaused(false);
     this.keyboard.clear();
     this.keyboard.active = true;
+    this.fireLatch.arm(); // the button that started the game mustn't also fire
     (document.activeElement as HTMLElement | null)?.blur(); // so Space can't re-press a button
     show('setup', false);
     show('gameover', false);
@@ -113,7 +134,8 @@ class Game {
     const match = this.match;
     if (!match || match.phase === 'gameOver') return;
     this.prev = snapshot(match);
-    const events = step(match, { [HUMAN_ID]: this.keyboard.sample() });
+    const input = combineInputs(this.keyboard.sample(), ...this.pads.map(inputFromGamepad));
+    const events = step(match, { [HUMAN_ID]: this.fireLatch.apply(input) });
     for (const event of events) this.onEvent(match, event);
   }
 
@@ -155,6 +177,14 @@ class Game {
   }
 
   private frame(now: number): void {
+    // Poll before stepping, so this frame's ticks see the latest gamepad state.
+    this.pads = pollGamepads();
+    if (this.pads.some(isActive)) {
+      this.setInputMode('gamepad');
+      if (this.inGame) this.gamepadInUse = true;
+    }
+    for (const action of this.menu.update(this.pads, now)) this.onMenuAction(action, now);
+
     const { alpha } = this.loop.frame(now);
     const match = this.match;
     if (match) {
@@ -197,6 +227,77 @@ class Game {
     this.keyboard.onKeyDown(e);
   }
 
+  /** Gamepad menu actions: pausing during play, and moving round the setup and result screens otherwise. */
+  private onMenuAction(action: MenuAction, now: number): void {
+    if (this.inGame) {
+      if (action === 'start' || (action === 'back' && this.loop.isPaused))
+        this.setPaused(!this.loop.isPaused);
+      return;
+    }
+    const onSetup = isShown('setup');
+    // The result screen ignores presses at first, so a player still hammering fire gets to see it.
+    const onResult = isShown('gameover') && now >= this.enterLockedUntil;
+    if (!onSetup && !onResult) return;
+
+    const rows: HTMLButtonElement[][] = onSetup
+      ? [buttonsIn('opt-ai'), buttonsIn('opt-rounds'), [el<HTMLButtonElement>('start')]]
+      : [[el<HTMLButtonElement>('again')], [el<HTMLButtonElement>('settings')]];
+    const focused = document.activeElement;
+    let row = rows.findIndex((r) => r.some((b) => b === focused));
+    if (row < 0) {
+      // Nothing focused yet: start from the main button. A or B only highlights it; a direction moves on from it.
+      (onSetup ? el('start') : el('again')).focus();
+      if (action === 'confirm' || action === 'back') return;
+      row = rows.length - (onSetup ? 1 : 2);
+    }
+    const current = rows[row]!;
+    const col = Math.max(
+      0,
+      current.findIndex((b) => b === document.activeElement),
+    );
+
+    switch (action) {
+      case 'up':
+      case 'down': {
+        const next = rows[Math.max(0, Math.min(rows.length - 1, row + (action === 'up' ? -1 : 1)))]!;
+        (next.find((b) => b.getAttribute('aria-checked') === 'true') ?? next[0])?.focus();
+        break;
+      }
+      case 'left':
+      case 'right': {
+        const target = current[Math.max(0, Math.min(current.length - 1, col + (action === 'left' ? -1 : 1)))];
+        target?.focus();
+        if (target?.getAttribute('role') === 'radio') target.click(); // radio groups select as you move
+        break;
+      }
+      case 'confirm':
+        (document.activeElement as HTMLElement | null)?.click();
+        break;
+      case 'back':
+        if (!onSetup) el('settings').click();
+        break;
+      case 'start':
+        if (onSetup) el('start').click();
+        break;
+    }
+  }
+
+  /** Shows a strong focus outline only while the gamepad is in use; mouse and keyboard keep the usual styling. */
+  private setInputMode(mode: InputMode): void {
+    if (document.body.dataset['input'] !== mode) document.body.dataset['input'] = mode;
+  }
+
+  private updatePadStatus(): void {
+    const detected = pollGamepads().length > 0;
+    this.setText(
+      'pad-status',
+      detected
+        ? 'Gamepad detected: A selects, Start begins.'
+        : 'Have a gamepad? Press any button on it to wake it up.',
+    );
+    el('pad-status').classList.toggle('detected', detected);
+  }
+
   private autoPause(): void {
     this.keyboard.clear(); // no stuck keys when focus comes back
     if (this.inGame) this.setPaused(true);
@@ -235,6 +336,24 @@ class Game {
     }
     render();
   }
+}
+
+/** Connected gamepads. Empty if the browser has no Gamepad API (or blocks it, e.g. outside https). */
+function pollGamepads(): GamepadSnapshot[] {
+  if (typeof navigator.getGamepads !== 'function') return [];
+  try {
+    return navigator.getGamepads().filter((pad): pad is Gamepad => pad !== null && pad.connected);
+  } catch {
+    return [];
+  }
+}
+
+function buttonsIn(id: string): HTMLButtonElement[] {
+  return [...el(id).querySelectorAll('button')];
+}
+
+function isShown(id: string): boolean {
+  return !el(id).classList.contains('hidden');
 }
 
 function show(id: string, visible: boolean): void {

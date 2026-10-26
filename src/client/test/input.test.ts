@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import { inputFromKeys, KeyboardState } from '../src/input';
+import { combineInputs, FireLatch, inputFromKeys, KeyboardState } from '../src/input';
+import { BUTTON, inputFromGamepad } from '../src/gamepad';
 
 const keys = (...codes: string[]): Set<string> => new Set(codes);
 const event = (code: string) => ({ code, preventDefault: vi.fn() });
@@ -63,5 +64,60 @@ describe('keyboard controls', () => {
     kb.onKeyDown(event('ArrowLeft'));
     kb.clear();
     expect(kb.sample()).toEqual({ throttle: 0, turn: 0, fire: false });
+  });
+});
+
+describe('combining devices', () => {
+  test('Keyboard and gamepad together', () => {
+    const keyboard = inputFromKeys(keys('KeyW'));
+    const gamepad = { throttle: 0 as const, turn: 0.4, fire: false };
+    expect(combineInputs(keyboard, gamepad)).toEqual({ throttle: 1, turn: 0.4, fire: false });
+  });
+
+  test('the stronger input wins, equal opposites cancel, and fire from either device counts', () => {
+    expect(
+      combineInputs({ throttle: 0, turn: -0.3, fire: false }, { throttle: 0, turn: 1, fire: true }),
+    ).toEqual({
+      throttle: 0,
+      turn: 1,
+      fire: true,
+    });
+    expect(
+      combineInputs({ throttle: 1, turn: -1, fire: false }, { throttle: -1, turn: 1, fire: false }),
+    ).toEqual({
+      throttle: 0,
+      turn: 0,
+      fire: false,
+    });
+    expect(combineInputs()).toEqual({ throttle: 0, turn: 0, fire: false });
+  });
+});
+
+describe('fire latch', () => {
+  test('Starting a game does not fire', () => {
+    const aHeld = inputFromGamepad({
+      axes: [0, 0],
+      buttons: Array.from({ length: 17 }, (_, i) => ({
+        pressed: i === BUTTON.A,
+        value: i === BUTTON.A ? 1 : 0,
+      })),
+    });
+    const released = { throttle: 0 as const, turn: 0, fire: false };
+    for (const held of [aHeld, inputFromKeys(keys('Space'))]) {
+      const latch = new FireLatch();
+      latch.arm();
+      expect(latch.apply(held).fire).toBe(false); // still held from pressing Start
+      expect(latch.apply(held).fire).toBe(false);
+      expect(latch.apply(released).fire).toBe(false);
+      expect(latch.apply(held).fire).toBe(true); // a fresh press fires
+    }
+  });
+
+  test('an unarmed latch passes input straight through, other fields included', () => {
+    const latch = new FireLatch();
+    const input = { throttle: 1 as const, turn: -0.5, fire: true };
+    expect(latch.apply(input)).toEqual(input);
+    latch.arm();
+    expect(latch.apply(input)).toEqual({ ...input, fire: false });
   });
 });

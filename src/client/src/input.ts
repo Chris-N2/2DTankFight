@@ -59,3 +59,44 @@ export class KeyboardState {
     return inputFromKeys(this.pressed);
   }
 }
+
+/** Picks the stronger of two values; equally strong opposites cancel out, like opposing keys. */
+function stronger<T extends number>(a: T, b: T): T | 0 {
+  if (Math.abs(a) > Math.abs(b)) return a;
+  if (Math.abs(b) > Math.abs(a)) return b;
+  return a === b ? a : 0;
+}
+
+/**
+ * Combines inputs from several devices (keyboard and any gamepads) into one: the stronger turn and
+ * throttle win, and fire is held if any device holds it.
+ */
+export function combineInputs(...inputs: TankInput[]): TankInput {
+  let combined: TankInput = { throttle: 0, turn: 0, fire: false };
+  for (const input of inputs) {
+    combined = {
+      throttle: stronger(combined.throttle, input.throttle),
+      turn: stronger(combined.turn, input.turn),
+      fire: combined.fire || input.fire,
+    };
+  }
+  return combined;
+}
+
+/**
+ * Stops a fire button that's still held from the menus firing the moment play begins. Arm it when a
+ * game starts; fire then reads as released until the player actually lets go.
+ */
+export class FireLatch {
+  private armed = false;
+
+  arm(): void {
+    this.armed = true;
+  }
+
+  apply(input: TankInput): TankInput {
+    if (!this.armed) return input;
+    if (!input.fire) this.armed = false;
+    return { ...input, fire: false };
+  }
+}

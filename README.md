@@ -19,12 +19,25 @@ npm run dev        # then open the URL Vite prints (usually http://localhost:517
 
 ## Controls
 
-| Action | Keys |
-|---|---|
-| Drive forward / reverse | <kbd>W</kbd> / <kbd>S</kbd> or <kbd>↑</kbd> / <kbd>↓</kbd> |
-| Turn left / right | <kbd>A</kbd> / <kbd>D</kbd> or <kbd>←</kbd> / <kbd>→</kbd> |
-| Fire | <kbd>Space</kbd> (one shell per press) |
-| Pause / resume | <kbd>Esc</kbd> (switching tabs pauses too) |
+Best played with a gamepad. The keyboard and a gamepad both work at any time.
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Drive forward / reverse | <kbd>W</kbd> / <kbd>S</kbd> or <kbd>↑</kbd> / <kbd>↓</kbd> | Left stick up / down, or d-pad |
+| Turn left / right | <kbd>A</kbd> / <kbd>D</kbd> or <kbd>←</kbd> / <kbd>→</kbd> | Left stick (analogue: push further to turn faster), or d-pad |
+| Fire | <kbd>Space</kbd> (one shell per press) | <kbd>A</kbd> or <kbd>RT</kbd> (one shell per press) |
+| Pause / resume | <kbd>Esc</kbd> (switching tabs pauses too) | <kbd>Start</kbd> (unplugging the pad pauses too) |
+| Menus | <kbd>Tab</kbd> and <kbd>Enter</kbd> | D-pad or stick to move, <kbd>A</kbd> to select, <kbd>B</kbd> to go back |
+
+Browsers only reveal a gamepad once one of its buttons has been pressed on the page, so press any button when you
+arrive and the setup screen will confirm it's been detected. Button names are Xbox-style; on other pads, use the button
+in the same position (for example, the bottom face button for <kbd>A</kbd>).
+
+### Hosting it yourself
+
+`npm run build` produces a static site you can put on any web server, with one caveat: browsers only allow gamepads on
+secure pages, so serve it over **https** (localhost is fine for development). If you embed the game in an `<iframe>`,
+add `allow="gamepad"` to it.
 
 ## Scripts
 
@@ -42,7 +55,7 @@ npm run dev        # then open the URL Vite prints (usually http://localhost:517
 ```
 src/sim/      @tank/sim — the game itself: simulation, rules, AI, boards. Pure TypeScript with no DOM, clocks or
               networking, so a future multiplayer server can run exactly the same code.
-src/client/   @tank/client — the browser: Canvas rendering, keyboard input, screens and the game loop.
+src/client/   @tank/client — the browser: Canvas rendering, keyboard and gamepad input, screens and the game loop.
 openspec/     Specs and change history. Every feature is specified here before it's built.
 ```
 

@@ -204,21 +204,38 @@ button.primary {
   width: 100%;
 }
 
+body[data-input='gamepad'] button:focus {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .controls {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 14px;
+  width: 100%;
   margin: 22px 0 0;
+  border-collapse: collapse;
   text-align: left;
   font-size: 14px;
 }
 
-.controls dt {
+.controls th,
+.controls td {
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+}
+
+.controls th {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.pad-status {
+  margin: 16px 0 0;
+  font-size: 13px;
   color: var(--muted);
 }
 
-.controls dd {
-  margin: 0;
+.pad-status.detected {
+  color: var(--accent);
 }
 
 kbd {

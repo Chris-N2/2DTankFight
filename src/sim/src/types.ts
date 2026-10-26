@@ -24,8 +24,11 @@ export interface Board {
 export interface TankInput {
   /** 1 = forward, -1 = reverse, 0 = none. */
   throttle: -1 | 0 | 1;
-  /** -1 = turn left (anticlockwise on screen), 1 = turn right, 0 = none. */
-  turn: -1 | 0 | 1;
+  /**
+   * -1 = full left (anticlockwise on screen), 1 = full right, 0 = none; values in between turn part-way
+   * (an analogue stick). Out-of-range values are clamped and non-finite values ignored by the simulation.
+   */
+  turn: number;
   /** Fire button held this tick. A shell is fired on the transition from released to held. */
   fire: boolean;
 }

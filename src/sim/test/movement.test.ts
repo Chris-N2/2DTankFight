@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { circleRectOverlap, distance } from '../src/geometry';
+import { cloneState } from '../src/match';
 import { cfg, DT, makeBoard, place, playing, R, retire, world } from './helpers';
 
 describe('simulation: tank movement', () => {
@@ -32,6 +33,41 @@ describe('simulation: tank movement', () => {
     // Turning left is anticlockwise on screen; with y pointing down, that's a decreasing angle.
     expect(t.heading).toBeCloseTo(-cfg.tankTurnRate * DT);
     expect([t.x, t.y]).toEqual([300, 300]);
+  });
+
+  test('Partial turn', () => {
+    const state = playing();
+    retire(state, 'ai1');
+    const t = place(state, 'p1', 300, 300, 0);
+    world(state, { p1: { turn: 0.5 } });
+    expect(t.heading).toBeCloseTo(0.5 * cfg.tankTurnRate * DT); // clockwise on screen: increasing angle
+    expect([t.x, t.y]).toEqual([300, 300]);
+  });
+
+  test('Out-of-range turn is clamped', () => {
+    const state = playing();
+    const over = place(state, 'p1', 300, 300, 0);
+    const full = place(state, 'ai1', 500, 300, 0);
+    world(state, { p1: { turn: 2.5 }, ai1: { turn: 1 } });
+    expect(over.heading).toBe(full.heading);
+    world(state, { p1: { turn: -7 }, ai1: { turn: -1 } });
+    expect(over.heading).toBe(full.heading);
+  });
+
+  test('Invalid turn is ignored', () => {
+    const state = playing();
+    retire(state, 'ai1');
+    const t = place(state, 'p1', 300, 300, 0);
+    for (const turn of [NaN, Infinity, -Infinity]) {
+      world(state, { p1: { turn, throttle: 1 } });
+      expect(t.heading).toBe(0);
+      expect(Number.isFinite(t.x) && Number.isFinite(t.y)).toBe(true);
+    }
+    // ...and the match stays deterministic: the same inputs from a clone give the same state.
+    const copy = cloneState(state);
+    world(state, { p1: { turn: NaN } });
+    world(copy, { p1: { turn: NaN } });
+    expect(copy).toEqual(state);
   });
 
   test('turning and moving in the same tick', () => {

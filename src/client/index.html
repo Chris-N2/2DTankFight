@@ -36,14 +36,34 @@
             <div class="choices" id="opt-rounds" role="radiogroup" aria-label="Rounds"></div>
           </div>
           <button id="start" class="primary">Start</button>
-          <dl class="controls">
-            <dt>Drive</dt>
-            <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys</dd>
-            <dt>Fire</dt>
-            <dd><kbd>Space</kbd></dd>
-            <dt>Pause</dt>
-            <dd><kbd>Esc</kbd></dd>
-          </dl>
+          <table class="controls">
+            <thead>
+              <tr>
+                <th></th>
+                <th scope="col">Keyboard</th>
+                <th scope="col">Gamepad</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Drive</th>
+                <td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows</td>
+                <td>Left stick or d-pad</td>
+              </tr>
+              <tr>
+                <th scope="row">Fire</th>
+                <td><kbd>Space</kbd></td>
+                <td><kbd>A</kbd> or <kbd>RT</kbd></td>
+              </tr>
+              <tr>
+                <th scope="row">Pause</th>
+                <td><kbd>Esc</kbd></td>
+                <td><kbd>Start</kbd></td>
+              </tr>
+            </tbody>
+          </table>
+          <p id="pad-status" class="pad-status" aria-live="polite"></p>
+          <p class="hint">Best played with a gamepad.</p>
           <p class="hint">Shells bounce once, and they aren't fussy about whom they hit next.</p>
         </div>
       </div>
@@ -51,7 +71,7 @@
       <div id="pause" class="overlay hidden">
         <div class="panel">
           <h2>Paused</h2>
-          <p>Press <kbd>Esc</kbd> to resume</p>
+          <p>Press <kbd>Esc</kbd> or <kbd>Start</kbd> to resume</p>
         </div>
       </div>
 
