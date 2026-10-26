@@ -19,3 +19,8 @@ Thumbs.db
 
 # Claude Code local (per-machine) settings
 .claude/settings.local.json
+
+# Tool caches
+.serena/
+.eslintcache
+.vite/

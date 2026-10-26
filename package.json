@@ -1,0 +1,36 @@
+{
+  "name": "2d-tank-command",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A browser tank battle inspired by Combat for the Atari 2600.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "src/sim",
+    "src/client"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @tank/client",
+    "build": "npm run build -w @tank/client",
+    "preview": "npm run preview -w @tank/client",
+    "typecheck": "tsc -p src/sim --noEmit && tsc -p src/client --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

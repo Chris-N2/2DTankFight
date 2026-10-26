@@ -1,0 +1,11 @@
+{
+  "name": "@tank/sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure, fixed-timestep game simulation, rules and AI. No DOM, no clocks, no networking.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
