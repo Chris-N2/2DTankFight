@@ -92,8 +92,10 @@ than stopping dead.
 
 ### Requirement: Firing shells
 When a live tank's fire input changes from not held to held, and its fire cooldown has elapsed, the tank SHALL fire one
-shell from its muzzle in the direction it faces, at a fixed shell speed. Holding fire SHALL NOT fire repeatedly; the
-player must release and press again. A tank's ammunition is unlimited.
+shell from its muzzle in the direction it faces. The shell SHALL travel at the firing tank's shell speed and deal the
+firing tank's shell damage. By default these are the configured shell speed and damage, and the game mode's rules may
+set them per tank. Holding fire SHALL NOT fire repeatedly; the player must release and press again. A tank's
+ammunition is unlimited.
 
 #### Scenario: Pressing fire launches a shell
 - **WHEN** a tank whose cooldown has elapsed presses fire
@@ -106,6 +108,11 @@ player must release and press again. A tank's ammunition is unlimited.
 #### Scenario: Cooldown limits fire rate
 - **WHEN** a tank presses fire, releases, and presses again before its cooldown has elapsed
 - **THEN** no second shell is fired
+
+#### Scenario: Shells carry their tank's speed and damage
+- **WHEN** a tank whose shell speed is 1.5× the default and whose shell damage is 2 fires, and the shell hits another
+  tank
+- **THEN** the shell travels at 1.5× the default speed and the target loses 2 hit points
 
 ### Requirement: Shells bounce once
 A shell SHALL travel in a straight line. On its first contact with an obstacle or the arena boundary it SHALL reflect
@@ -177,9 +184,13 @@ other shell that reaches it in that tick.
 - **THEN** both shells hit it and are destroyed, and the tank is eliminated at the end of the tick
 
 ### Requirement: Hit points
-Every tank SHALL start each round with the configured maximum hit points. In this change all tanks, human and AI,
-SHALL have the same maximum hit points and all shells SHALL deal the same damage.
+Every tank SHALL have a maximum hit points value and SHALL start each round or wave with that many hit points. By
+default every tank's maximum is the configured maximum hit points, and the game mode's rules may set it per tank.
 
 #### Scenario: Full health at round start
 - **WHEN** a new round begins
-- **THEN** every tank's hit points equal the configured maximum
+- **THEN** every tank's hit points equal its maximum hit points
+
+#### Scenario: Defaults are equal
+- **WHEN** a Last One Standing match is created
+- **THEN** every tank has the configured maximum hit points, shell damage and shell speed
