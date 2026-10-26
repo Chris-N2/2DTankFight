@@ -31,7 +31,7 @@ function expectNoTankInWalls(state: MatchState): void {
 describe('ai: soak', () => {
   test('AI-only rounds on Proving Ground all finish, with no tank ever inside a wall', () => {
     for (const seed of seeds(50, FROZE_AI_ONLY)) {
-      const state = createMatch({ aiCount: 4, rounds: 1 }, PROVING_GROUND, seed);
+      const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 1 }, PROVING_GROUND, seed);
       state.phase = 'playing';
       state.tanks[0]!.alive = false; // no human: four AI tanks fight it out
 
@@ -50,11 +50,61 @@ describe('ai: soak', () => {
     // Hiding is a real tactic, so the AI must find and finish off a still target rather than freezing.
     for (const aiCount of [1, 2, 3, 4]) {
       for (const seed of seeds(25, FROZE_IDLE_HUMAN[aiCount])) {
-        const state = createMatch({ aiCount, rounds: 1 }, PROVING_GROUND, seed);
+        const state = createMatch({ mode: 'lastOneStanding', aiCount, rounds: 1 }, PROVING_GROUND, seed);
         state.phase = 'playing';
         let tick = 0;
         for (; tick < TIME_LIMIT_TICKS && state.phase === 'playing'; tick++) step(state, {});
         expect(tick, `${aiCount} AI, seed ${seed} did not finish`).toBeLessThan(TIME_LIMIT_TICKS);
+      }
+    }
+  }, 120_000);
+});
+
+describe('waves: soak', () => {
+  test('Waves games with a human who never moves all end, with no tank ever inside a wall', () => {
+    // Co-operating AI tanks converge on the same target, so this is where allies blocking each other's
+    // lanes would show up as a freeze.
+    for (const startAiCount of [1, 2, 3, 4]) {
+      for (const seed of seeds(25)) {
+        const state = createMatch({ mode: 'waves', startAiCount }, PROVING_GROUND, seed);
+        let tick = 0;
+        for (; tick < TIME_LIMIT_TICKS && state.phase !== 'gameOver'; tick++) {
+          step(state, {});
+          expectNoTankInWalls(state);
+        }
+        expect(tick, `start ${startAiCount}, seed ${seed} did not end`).toBeLessThan(TIME_LIMIT_TICKS);
+        expect(state.result).toBe('over');
+      }
+    }
+  }, 120_000);
+
+  test('Waves run through every escalation step without stalling', () => {
+    // An unkillable human, driven by the AI's own brain, so the waves keep being cleared and the
+    // escalated waves (thicker armour, harder hits, faster shells) all get played.
+    const LAST_WAVE = 16;
+    for (const startAiCount of [1, 4]) {
+      for (const seed of seeds(2)) {
+        const state = createMatch({ mode: 'waves', startAiCount }, PROVING_GROUND, seed);
+        const human = state.tanks[0]!;
+        let waveTicks = 0;
+        let wave = state.round;
+        while (state.round < LAST_WAVE) {
+          expect(state.phase, `start ${startAiCount}, seed ${seed}: the human was destroyed`).not.toBe(
+            'gameOver',
+          );
+          human.hp = 1000; // more than any wave can take off in one tick, even once a hit is lethal
+          const input = state.phase === 'playing' ? think(state, human) : undefined;
+          step(state, input ? { p1: input } : {});
+          expectNoTankInWalls(state);
+          if (state.round !== wave) {
+            wave = state.round;
+            waveTicks = 0;
+          }
+          expect(++waveTicks, `start ${startAiCount}, seed ${seed} stalled in wave ${wave}`).toBeLessThan(
+            TIME_LIMIT_TICKS,
+          );
+        }
+        expect(state.waves?.cleared).toBe(LAST_WAVE - 1);
       }
     }
   }, 120_000);

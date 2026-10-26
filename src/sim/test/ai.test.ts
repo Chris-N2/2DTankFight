@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { createMatch, step, type MatchState, type TankInput } from '../src';
+import { createMatch, DEFAULT_CONFIG, step, type Board, type MatchState, type TankInput } from '../src';
 import { think } from '../src/ai/think';
 import { lineOfSight } from '../src/geometry';
 import { buildNavGrid, cellAt, findPath } from '../src/nav';
-import { cfg, makeBoard, ofType, place, playing, tank, world } from './helpers';
+import { addShell, cfg, makeBoard, ofType, place, playing, playingWaves, tank, world } from './helpers';
 
 const REACTION_TICKS = Math.round(cfg.aiReactionDelay * cfg.tickRate);
 const RETARGET_TICKS = Math.round(cfg.aiRetargetInterval * cfg.tickRate);
@@ -267,7 +267,7 @@ describe('ai: beatable imperfection', () => {
   test('Reproducible behaviour', () => {
     const run = (): string[] => {
       const state = createMatch(
-        { aiCount: 4, rounds: 7 },
+        { mode: 'lastOneStanding', aiCount: 4, rounds: 7 },
         makeBoard([{ x: 350, y: 250, w: 100, h: 100 }]),
         99,
       );
@@ -282,5 +282,111 @@ describe('ai: beatable imperfection', () => {
       return trace;
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe('waves: AI tanks are allies', () => {
+  /** The infighting layout above: a full-height wall seals the human off, and the AI tanks can see each other. */
+  function sealedHuman(state: MatchState): MatchState {
+    place(state, 'p1', 60, 300, 0);
+    place(state, 'ai1', 350, 300, Math.PI / 2);
+    place(state, 'ai2', 650, 300, Math.PI / 2);
+    return state;
+  }
+  const sealedBoard = (): Board => makeBoard([{ x: 150, y: 0, w: 20, h: 600 }]);
+
+  test("AI tanks don't fight each other", () => {
+    const state = sealedHuman(playingWaves(sealedBoard(), 2));
+    const events = [];
+    const targets = new Set<string | null>();
+    for (let i = 0; i < 180; i++) {
+      events.push(...step(state, {}));
+      for (const id of ['ai1', 'ai2']) targets.add(state.ai[id]!.targetId);
+    }
+    expect([...targets]).toEqual(['p1']);
+    expect(ofType(events, 'shotFired')).toHaveLength(0);
+    for (const id of ['ai1', 'ai2']) expect(tank(state, id).hp).toBe(tank(state, id).maxHp);
+  });
+
+  test('switching co-operation off brings back infighting', () => {
+    const config = { ...DEFAULT_CONFIG, wavesAiCooperate: false };
+    const state = createMatch({ mode: 'waves', startAiCount: 2 }, sealedBoard(), 1, config);
+    state.phase = 'playing';
+    sealedHuman(state);
+    const events = [];
+    for (let i = 0; i < 180; i++) events.push(...step(state, {}));
+    const hits = ofType(events, 'hit');
+    expect(hits.some((h) => h.shooterId.startsWith('ai') && h.targetId.startsWith('ai'))).toBe(true);
+  });
+
+  /** ai1 lined up on the human, with ai2 parked directly between them. */
+  function allyInTheWay(): MatchState {
+    const state = playingWaves(makeBoard(), 2);
+    // Within engaging range, so ai1 sits still and waits for its shot rather than advancing.
+    place(state, 'ai1', 150, 300, 0);
+    place(state, 'ai2', 300, 300, Math.PI / 2);
+    place(state, 'p1', 500, 300, Math.PI);
+    return state;
+  }
+
+  test('Holding fire for an ally', () => {
+    const state = allyInTheWay();
+    const inputs = thinkPinned(state, 'ai1', 3 * cfg.tickRate);
+    expect(state.ai['ai1']!.targetId).toBe('p1');
+    expect(inputs.some((i) => i.fire)).toBe(false);
+
+    // Once the ally moves out of the lane, the shot goes.
+    place(state, 'ai2', 300, 500, Math.PI / 2);
+    const after = thinkPinned(state, 'ai1', 2 * cfg.tickRate);
+    expect(after.some((i) => i.fire)).toBe(true);
+  });
+
+  test("An ally in the way doesn't freeze the AI", () => {
+    const state = allyInTheWay();
+    const inputs = thinkPinned(state, 'ai1', 2 * cfg.tickRate);
+    const firstMove = inputs.findIndex((i) => i.throttle !== 0);
+    // Lined up and waiting at first; within a bounded time it backs off to find a new spot.
+    expect(firstMove).toBeGreaterThan(REACTION_TICKS);
+    expect(firstMove).toBeLessThanOrEqual(REACTION_TICKS + Math.round(cfg.aiStuckWindow * cfg.tickRate) + 1);
+
+    // Left to drive for real, with the ally held still as the worst case, it never sits motionless for
+    // longer than it takes to re-aim and decide it's blocked.
+    const ai = tank(state, 'ai1');
+    const bound = REACTION_TICKS + Math.round((cfg.aiStuckWindow + cfg.aiRecoverDuration) * cfg.tickRate);
+    let still = 0;
+    let longestStill = 0;
+    for (let i = 0; i < 10 * cfg.tickRate; i++) {
+      const before = { x: ai.x, y: ai.y, heading: ai.heading };
+      world(state, { ai1: think(state, ai) });
+      place(state, 'ai2', 300, 300, Math.PI / 2);
+      tank(state, 'p1').hp = cfg.tankMaxHp;
+      const moved = ai.x !== before.x || ai.y !== before.y || ai.heading !== before.heading;
+      still = moved ? 0 : still + 1;
+      longestStill = Math.max(longestStill, still);
+    }
+    expect(longestStill).toBeLessThanOrEqual(bound);
+  });
+
+  test('Accidents still happen', () => {
+    const state = playingWaves(makeBoard(), 2);
+    place(state, 'p1', 60, 60, 0);
+    const shooter = place(state, 'ai1', 200, 300, 0);
+    const ally = place(state, 'ai2', 400, 300, Math.PI);
+    shooter.shellDamage = 2;
+    ally.maxHp = 5; // tough enough to survive both shells
+    ally.hp = 5;
+    const events = world(state, { ai1: { fire: true } });
+    for (let i = 0; i < 60; i++) events.push(...world(state));
+    expect(ofType(events, 'hit')).toEqual([
+      expect.objectContaining({ shooterId: 'ai1', targetId: 'ai2', damage: 2 }),
+    ]);
+    expect(ally.hp).toBe(ally.maxHp - 2);
+
+    // Bounced shells too.
+    addShell(state, 300, 300, 0, { ownerId: 'ai1', bounces: 1 });
+    const later = world(state);
+    for (let i = 0; i < 30; i++) later.push(...world(state));
+    expect(ofType(later, 'hit')).toEqual([expect.objectContaining({ shooterId: 'ai1', targetId: 'ai2' })]);
+    expect(ally.hp).toBe(ally.maxHp - 2 - cfg.shellDamage);
   });
 });

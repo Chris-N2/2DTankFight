@@ -13,7 +13,7 @@ const sixBlocks = [
 
 describe('arena: board definition', () => {
   test('Board loads from data', () => {
-    const state = createMatch({ aiCount: 4, rounds: 5 }, PROVING_GROUND, 3);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 5 }, PROVING_GROUND, 3);
     expect(state.board).toEqual(PROVING_GROUND);
     expect(state.nav.cols * state.nav.rows).toBe(state.nav.walkable.length);
     const spawnKeys = PROVING_GROUND.spawns.map((s) => `${s.x},${s.y}`);
@@ -68,7 +68,7 @@ describe('arena: board validity', () => {
 
 describe('arena: single built-in board', () => {
   test('Same board each round', () => {
-    const state = createMatch({ aiCount: 2, rounds: 5 }, PROVING_GROUND, 5);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds: 5 }, PROVING_GROUND, 5);
     finishRound(state, 'human');
     finishRound(state, 'ai');
     skipToPlay(state);
@@ -79,7 +79,7 @@ describe('arena: single built-in board', () => {
 
 describe('arena: spawn assignment', () => {
   test('Distinct spawns', () => {
-    const state = createMatch({ aiCount: 4, rounds: 5 }, PROVING_GROUND, 11);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 5 }, PROVING_GROUND, 11);
     const keys = new Set(state.tanks.map((t) => `${t.x},${t.y}`));
     expect(keys.size).toBe(5);
     for (const t of state.tanks) {
@@ -91,7 +91,7 @@ describe('arena: spawn assignment', () => {
 
   test('Spawns vary between rounds', () => {
     const humanSpawns = (seed: number): string[] => {
-      const state = createMatch({ aiCount: 4, rounds: 7 }, PROVING_GROUND, seed);
+      const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 7 }, PROVING_GROUND, seed);
       const seen: string[] = [];
       for (let r = 0; r < 6; r++) {
         skipToPlay(state); // the next round (and its spawn assignment) has begun

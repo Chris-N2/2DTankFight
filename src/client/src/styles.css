@@ -263,3 +263,13 @@ kbd {
   font-size: 22px;
   margin: 10px 0 0;
 }
+
+.go-best {
+  margin: 6px 0 0;
+  color: var(--sand);
+  font-weight: 700;
+}
+
+.go-best:empty {
+  display: none;
+}

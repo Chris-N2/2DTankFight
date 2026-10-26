@@ -41,7 +41,7 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
       events.push({ type: 'shellDestroyed', shellId: shell.id, x: shell.x, y: shell.y });
       continue;
     }
-    if (moveShell(state, shell, state.config.shellSpeed * tickDuration(state.config), events, lastHitBy)) {
+    if (moveShell(state, shell, shell.speed * tickDuration(state.config), events, lastHitBy)) {
       survivors.push(shell);
     }
   }
@@ -133,8 +133,10 @@ function fire(
     ownerId: tank.id,
     x: tank.x,
     y: tank.y,
-    vx: dirX * cfg.shellSpeed,
-    vy: dirY * cfg.shellSpeed,
+    vx: dirX * tank.shellSpeed,
+    vy: dirY * tank.shellSpeed,
+    speed: tank.shellSpeed,
+    damage: tank.shellDamage,
     bounces: 0,
     ticksLeft: ticks(cfg, cfg.shellLifetime),
   };
@@ -214,14 +216,14 @@ function moveShell(
     const cy = shell.y + (y1 - shell.y) * bestT;
 
     if (hitTank) {
-      hitTank.hp -= cfg.shellDamage;
+      hitTank.hp -= shell.damage;
       lastHitBy[hitTank.id] = shell.ownerId;
       events.push({
         type: 'hit',
         shooterId: shell.ownerId,
         targetId: hitTank.id,
         shellId: shell.id,
-        damage: cfg.shellDamage,
+        damage: shell.damage,
         x: cx,
         y: cy,
       });

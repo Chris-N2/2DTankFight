@@ -250,3 +250,40 @@ describe('simulation: elimination', () => {
     expect(ofType(events, 'eliminated').map((e) => e.tankId)).toEqual(['ai1']);
   });
 });
+
+describe('simulation: per-tank combat values', () => {
+  test("Shells carry their tank's speed and damage", () => {
+    const state = playing();
+    const p1 = place(state, 'p1', 100, 300, 0);
+    p1.shellSpeed = cfg.shellSpeed * 1.5;
+    p1.shellDamage = 2;
+    const target = place(state, 'ai1', 700, 300, Math.PI);
+    target.maxHp = 5;
+    target.hp = 5;
+
+    world(state, { p1: { fire: true } });
+    const shell = state.shells[0]!;
+    expect(Math.hypot(shell.vx, shell.vy)).toBeCloseTo(cfg.shellSpeed * 1.5);
+    const x0 = shell.x;
+    world(state);
+    expect(shell.x - x0).toBeCloseTo((cfg.shellSpeed * 1.5) / cfg.tickRate);
+
+    const events = [];
+    for (let i = 0; i < 120 && state.shells.length > 0; i++) events.push(...world(state));
+    expect(ofType(events, 'hit')[0]).toMatchObject({ shooterId: 'p1', targetId: 'ai1', damage: 2 });
+    expect(target.hp).toBe(3);
+  });
+
+  test('Defaults are equal', () => {
+    const state = playing(makeBoard(), 4);
+    expect(state.tanks).toHaveLength(5);
+    for (const t of state.tanks) {
+      expect(t).toMatchObject({
+        maxHp: cfg.tankMaxHp,
+        hp: cfg.tankMaxHp,
+        shellDamage: cfg.shellDamage,
+        shellSpeed: cfg.shellSpeed,
+      });
+    }
+  });
+});

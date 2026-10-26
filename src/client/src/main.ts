@@ -7,18 +7,36 @@ import {
   PROVING_GROUND,
   ROUND_CHOICES,
   step,
+  type GameMode,
   type MatchOptions,
   type MatchState,
   type SimEvent,
+  type WaveChange,
 } from '@tank/sim';
+import { browserStorage, recordBest } from './best';
 import { Effects } from './effects';
 import { inputFromGamepad, isActive, MenuInput, type GamepadSnapshot, type MenuAction } from './gamepad';
-import { combineInputs, FireLatch, GAME_KEYS, KeyboardState } from './input';
+import { combineInputs, FireLatch, GAME_KEYS, KeyboardState, menuActionForKey } from './input';
 import { FixedStepLoop } from './loop';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
-import { bannerFor, gameOverText, hpPips, roundLine, scoreLine } from './screens';
+import { bannerFor, gameOverText, hpPips, hudScore, roundLine, wavesGameOverText } from './screens';
 
-const DEFAULT_OPTIONS: MatchOptions = { aiCount: 3, rounds: 5 };
+/** Everything the setup screen remembers, for both modes, so switching mode back and forth loses nothing. */
+interface SetupChoices {
+  mode: GameMode;
+  aiCount: number;
+  rounds: number;
+  startAiCount: number;
+}
+
+const DEFAULT_CHOICES: SetupChoices = { mode: 'lastOneStanding', aiCount: 3, rounds: 5, startAiCount: 1 };
+
+const MODES: readonly GameMode[] = ['lastOneStanding', 'waves'];
+const MODE_NAMES: Record<GameMode, string> = { lastOneStanding: 'Last One Standing', waves: 'Waves' };
+const TAGLINES: Record<GameMode, string> = {
+  lastOneStanding: 'Last One Standing · every tank for itself',
+  waves: 'Waves · they keep coming, and they work together',
+};
 const GO_MS = 700;
 /** Lets the final explosion play before the result screen appears. */
 const RESULT_DELAY_MS = 1200;
@@ -37,7 +55,9 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 class Game {
   private match: MatchState | null = null;
   private prev: Snapshot | null = null;
-  private options: MatchOptions = { ...DEFAULT_OPTIONS };
+  private readonly choices: SetupChoices = { ...DEFAULT_CHOICES };
+  /** The escalation steps the current wave brought, for the countdown banner. */
+  private waveChanges: readonly WaveChange[] = [];
   private goUntil = 0;
   private enterLockedUntil = 0;
   private selfInflicted = false;
@@ -58,17 +78,34 @@ class Game {
 
   constructor() {
     this.buildChoices(
+      'opt-mode',
+      MODES,
+      () => this.choices.mode,
+      (v) => {
+        this.choices.mode = v;
+        this.showModeOptions();
+      },
+      (v) => MODE_NAMES[v],
+    );
+    this.buildChoices(
       'opt-ai',
       range(AI_COUNT_MIN, AI_COUNT_MAX),
-      () => this.options.aiCount,
-      (v) => (this.options.aiCount = v),
+      () => this.choices.aiCount,
+      (v) => (this.choices.aiCount = v),
     );
     this.buildChoices(
       'opt-rounds',
-      [...ROUND_CHOICES],
-      () => this.options.rounds,
-      (v) => (this.options.rounds = v),
+      ROUND_CHOICES,
+      () => this.choices.rounds,
+      (v) => (this.choices.rounds = v),
     );
+    this.buildChoices(
+      'opt-start-ai',
+      range(AI_COUNT_MIN, AI_COUNT_MAX),
+      () => this.choices.startAiCount,
+      (v) => (this.choices.startAiCount = v),
+    );
+    this.showModeOptions();
     el('start').addEventListener('click', () => this.start());
     el('again').addEventListener('click', () => this.start());
     el('settings').addEventListener('click', () => this.showSetup());
@@ -103,9 +140,11 @@ class Game {
 
   private start(): void {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0x100000000)) >>> 0;
-    this.match = createMatch({ ...this.options }, PROVING_GROUND, seed);
+    // "Play again" comes through here too, so it keeps the mode and options.
+    this.match = createMatch(this.matchOptions(), PROVING_GROUND, seed);
     this.prev = null;
     this.selfInflicted = false;
+    this.waveChanges = [];
     this.effects.clear();
     this.loop.reset();
     this.loop.setPaused(false);
@@ -146,6 +185,10 @@ class Game {
       case 'roundStarted':
         this.selfInflicted = false;
         break;
+      case 'waveStarted':
+        this.selfInflicted = false;
+        this.waveChanges = event.changes;
+        break;
       case 'playStarted':
         this.goUntil = now + GO_MS;
         break;
@@ -155,9 +198,18 @@ class Game {
       case 'gameEnded': {
         this.keyboard.active = false;
         this.keyboard.clear();
-        const text = gameOverText(event.result, event.scores);
+        const text =
+          event.result === 'over'
+            ? wavesGameOverText(
+                match.round,
+                event.wavesCleared,
+                recordBest(browserStorage(), match.waves?.startAiCount ?? 0, event.wavesCleared),
+                this.selfInflicted,
+              )
+            : gameOverText(event.result, event.scores);
         el('go-title').textContent = text.title;
         el('go-score').textContent = text.score;
+        el('go-best').textContent = text.best;
         el('go-quip').textContent = text.quip;
         this.enterLockedUntil = performance.now() + RESULT_DELAY_MS + RESULT_KEY_GRACE_MS;
         window.setTimeout(() => {
@@ -190,7 +242,7 @@ class Game {
     if (match) {
       this.renderer.draw(match, this.prev, alpha, this.effects, now);
       this.updateHud(match);
-      const banner = bannerFor(match, now < this.goUntil, this.selfInflicted);
+      const banner = bannerFor(match, now < this.goUntil, this.selfInflicted, this.waveChanges);
       show('banner', banner !== null && !this.loop.isPaused);
       if (banner) {
         this.setText('banner-title', banner.title);
@@ -205,7 +257,7 @@ class Game {
   private updateHud(match: MatchState): void {
     this.setText('hud-hp', hpPips(match));
     this.setText('hud-round', roundLine(match));
-    this.setText('hud-score', scoreLine(match.scores));
+    this.setText('hud-score', hudScore(match));
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -224,10 +276,19 @@ class Game {
       this.start();
       return;
     }
+    const menuAction = this.inGame ? null : menuActionForKey(e.code);
+    if (menuAction) {
+      e.preventDefault(); // arrows mustn't also scroll the page
+      this.onMenuAction(menuAction, performance.now());
+      return;
+    }
     this.keyboard.onKeyDown(e);
   }
 
-  /** Gamepad menu actions: pausing during play, and moving round the setup and result screens otherwise. */
+  /**
+   * Menu actions from the gamepad (and the keyboard's driving keys): pausing during play, and moving round the
+   * setup and result screens otherwise.
+   */
   private onMenuAction(action: MenuAction, now: number): void {
     if (this.inGame) {
       if (action === 'start' || (action === 'back' && this.loop.isPaused))
@@ -239,8 +300,9 @@ class Game {
     const onResult = isShown('gameover') && now >= this.enterLockedUntil;
     if (!onSetup && !onResult) return;
 
+    // Rows follow the options on show, so they change as the mode does.
     const rows: HTMLButtonElement[][] = onSetup
-      ? [buttonsIn('opt-ai'), buttonsIn('opt-rounds'), [el<HTMLButtonElement>('start')]]
+      ? [...visibleOptionRows(), [el<HTMLButtonElement>('start')]]
       : [[el<HTMLButtonElement>('again')], [el<HTMLButtonElement>('settings')]];
     const focused = document.activeElement;
     let row = rows.findIndex((r) => r.some((b) => b === focused));
@@ -315,17 +377,36 @@ class Game {
     el(id).textContent = text;
   }
 
-  private buildChoices(id: string, values: number[], get: () => number, set: (v: number) => void): void {
+  private matchOptions(): MatchOptions {
+    const { mode, aiCount, rounds, startAiCount } = this.choices;
+    return mode === 'waves' ? { mode, startAiCount } : { mode, aiCount, rounds };
+  }
+
+  /** Shows only the selected mode's options. */
+  private showModeOptions(): void {
+    for (const option of document.querySelectorAll<HTMLElement>('#setup .option[data-mode]')) {
+      option.classList.toggle('hidden', option.dataset['mode'] !== this.choices.mode);
+    }
+    el('tagline').textContent = TAGLINES[this.choices.mode];
+  }
+
+  private buildChoices<T extends string | number>(
+    id: string,
+    values: readonly T[],
+    get: () => T,
+    set: (v: T) => void,
+    label: (v: T) => string = String,
+  ): void {
     const container = el(id);
     const render = (): void => {
       for (const button of container.querySelectorAll('button')) {
-        button.setAttribute('aria-checked', String(Number(button.dataset['value']) === get()));
+        button.setAttribute('aria-checked', String(button.dataset['value'] === String(get())));
       }
     };
     for (const value of values) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = String(value);
+      button.textContent = label(value);
       button.dataset['value'] = String(value);
       button.setAttribute('role', 'radio');
       button.addEventListener('click', () => {
@@ -348,8 +429,11 @@ function pollGamepads(): GamepadSnapshot[] {
   }
 }
 
-function buttonsIn(id: string): HTMLButtonElement[] {
-  return [...el(id).querySelectorAll('button')];
+/** The setup screen's option rows that are on show, in order, as rows of buttons for gamepad navigation. */
+function visibleOptionRows(): HTMLButtonElement[][] {
+  return [...document.querySelectorAll<HTMLElement>('#setup .option:not(.hidden) .choices')].map(
+    (choices) => [...choices.querySelectorAll('button')],
+  );
 }
 
 function isShown(id: string): boolean {

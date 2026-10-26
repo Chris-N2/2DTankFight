@@ -26,14 +26,22 @@
       <div id="setup" class="overlay">
         <div class="panel">
           <h1>2-D Tank Command</h1>
-          <p class="tagline">Last One Standing &middot; every tank for itself</p>
+          <p id="tagline" class="tagline"></p>
           <div class="option">
+            <span class="option-label">Mode</span>
+            <div class="choices" id="opt-mode" role="radiogroup" aria-label="Mode"></div>
+          </div>
+          <div class="option" data-mode="lastOneStanding">
             <span class="option-label">AI opponents</span>
             <div class="choices" id="opt-ai" role="radiogroup" aria-label="AI opponents"></div>
           </div>
-          <div class="option">
+          <div class="option" data-mode="lastOneStanding">
             <span class="option-label">Rounds</span>
             <div class="choices" id="opt-rounds" role="radiogroup" aria-label="Rounds"></div>
+          </div>
+          <div class="option" data-mode="waves">
+            <span class="option-label">Starting AI tanks</span>
+            <div class="choices" id="opt-start-ai" role="radiogroup" aria-label="Starting AI tanks"></div>
           </div>
           <button id="start" class="primary">Start</button>
           <table class="controls">
@@ -79,6 +87,7 @@
         <div class="panel">
           <h2 id="go-title"></h2>
           <p id="go-score" class="go-score"></p>
+          <p id="go-best" class="go-best"></p>
           <p id="go-quip" class="hint"></p>
           <div class="buttons">
             <button id="again" class="primary">Play again</button>

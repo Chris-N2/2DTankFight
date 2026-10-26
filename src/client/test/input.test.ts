@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { combineInputs, FireLatch, inputFromKeys, KeyboardState } from '../src/input';
+import { combineInputs, FireLatch, inputFromKeys, KeyboardState, menuActionForKey } from '../src/input';
 import { BUTTON, inputFromGamepad } from '../src/gamepad';
 
 const keys = (...codes: string[]): Set<string> => new Set(codes);
@@ -119,5 +119,18 @@ describe('fire latch', () => {
     expect(latch.apply(input)).toEqual(input);
     latch.arm();
     expect(latch.apply(input)).toEqual({ ...input, fire: false });
+  });
+});
+
+describe('keyboard menus', () => {
+  test('Menus with the keyboard: arrows and W/A/S/D move like the d-pad', () => {
+    expect(['ArrowUp', 'KeyW'].map(menuActionForKey)).toEqual(['up', 'up']);
+    expect(['ArrowDown', 'KeyS'].map(menuActionForKey)).toEqual(['down', 'down']);
+    expect(['ArrowLeft', 'KeyA'].map(menuActionForKey)).toEqual(['left', 'left']);
+    expect(['ArrowRight', 'KeyD'].map(menuActionForKey)).toEqual(['right', 'right']);
+  });
+
+  test('Enter, Space and Tab are left to the browser and the focused button', () => {
+    for (const code of ['Enter', 'Space', 'Tab', 'Escape', 'KeyQ']) expect(menuActionForKey(code)).toBeNull();
   });
 });

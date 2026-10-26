@@ -14,7 +14,7 @@ import { DT, place, playing, retire, world } from './helpers';
 
 describe('state', () => {
   test('match state is plain, serialisable data', () => {
-    const state = createMatch({ aiCount: 4, rounds: 5 }, PROVING_GROUND, 42);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 5 }, PROVING_GROUND, 42);
     for (let i = 0; i < 400; i++) step(state, { p1: { throttle: 1, turn: 1, fire: i % 20 === 0 } });
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
     expect(cloneState(state)).toEqual(state);
@@ -108,7 +108,7 @@ describe('geometry', () => {
 
 describe('simulation: fixed-timestep, input-driven advancement', () => {
   test('Ticks advance by a fixed step', () => {
-    const state = createMatch({ aiCount: 1, rounds: 1 }, PROVING_GROUND, 1);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 1, rounds: 1 }, PROVING_GROUND, 1);
     const before = state.tick;
     step(state, {});
     expect(state.tick).toBe(before + 1);

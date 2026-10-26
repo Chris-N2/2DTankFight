@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { cloneState, createMatch, PROVING_GROUND, step, type SimEvent, type TankInput } from '../src';
+import {
+  cloneState,
+  createMatch,
+  PROVING_GROUND,
+  step,
+  type MatchOptions,
+  type SimEvent,
+  type TankInput,
+} from '../src';
 import { ofType } from './helpers';
 
 /** A deterministic but busy human input script. */
@@ -11,8 +19,12 @@ function scripted(tick: number): TankInput {
   };
 }
 
-function run(seed: number, ticks: number): { state: unknown; events: SimEvent[] } {
-  const state = createMatch({ aiCount: 4, rounds: 7 }, PROVING_GROUND, seed);
+function run(
+  seed: number,
+  ticks: number,
+  options: MatchOptions = { mode: 'lastOneStanding', aiCount: 4, rounds: 7 },
+): { state: unknown; events: SimEvent[] } {
+  const state = createMatch(options, PROVING_GROUND, seed);
   const events: SimEvent[] = [];
   for (let i = 0; i < ticks; i++) events.push(...step(state, { p1: scripted(i) }));
   return { state: cloneState(state), events };
@@ -27,6 +39,15 @@ describe('simulation: determinism', () => {
     expect(a.events.length).toBeGreaterThan(0);
   });
 
+  test('Deterministic replay in Waves', () => {
+    const options: MatchOptions = { mode: 'waves', startAiCount: 2 };
+    const a = run(2468, 3000, options);
+    const b = run(2468, 3000, options);
+    expect(a.state).toEqual(b.state);
+    expect(a.events).toEqual(b.events);
+    expect(a.events.length).toBeGreaterThan(0);
+  });
+
   test('Randomness is seeded: different seeds diverge', () => {
     expect(run(1, 300).state).not.toEqual(run(2, 300).state);
   });
@@ -34,7 +55,7 @@ describe('simulation: determinism', () => {
   test('Runs headless in Node', () => {
     // No DOM here: this test runs in Vitest's Node environment.
     expect(typeof (globalThis as Record<string, unknown>)['document']).toBe('undefined');
-    const state = createMatch({ aiCount: 4, rounds: 1 }, PROVING_GROUND, 2026);
+    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 1 }, PROVING_GROUND, 2026);
     const events: SimEvent[] = [];
     for (let i = 0; i < 120 * 60 && state.phase !== 'gameOver'; i++) events.push(...step(state, {}));
     expect(ofType(events, 'roundEnded')).toHaveLength(1);

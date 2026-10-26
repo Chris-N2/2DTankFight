@@ -35,7 +35,15 @@ export function makeBoard(obstacles: Rect[] = [], width = 800, height = 600): Bo
 
 /** A match that has skipped the countdown and is in play. */
 export function playing(board: Board = makeBoard(), aiCount = 1, seed = 1, rounds = 5): MatchState {
-  const state = createMatch({ aiCount, rounds }, board, seed);
+  const state = createMatch({ mode: 'lastOneStanding', aiCount, rounds }, board, seed);
+  state.phase = 'playing';
+  state.phaseTicks = 0;
+  return state;
+}
+
+/** A Waves match that has skipped wave 1's countdown and is in play. */
+export function playingWaves(board: Board = makeBoard(), startAiCount = 1, seed = 1): MatchState {
+  const state = createMatch({ mode: 'waves', startAiCount }, board, seed);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;
@@ -86,6 +94,8 @@ export function addShell(
     y,
     vx: Math.cos(heading) * cfg.shellSpeed,
     vy: Math.sin(heading) * cfg.shellSpeed,
+    speed: cfg.shellSpeed,
+    damage: cfg.shellDamage,
     bounces: opts.bounces ?? 0,
     ticksLeft: Math.round(cfg.shellLifetime * cfg.tickRate),
   });

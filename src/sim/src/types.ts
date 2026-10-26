@@ -46,6 +46,12 @@ export interface TankState {
   y: number;
   heading: number;
   hp: number;
+  /** Hit points at the start of each round or wave. */
+  maxHp: number;
+  /** Damage each of this tank's shells does. */
+  shellDamage: number;
+  /** Speed of this tank's shells, units per second. */
+  shellSpeed: number;
   alive: boolean;
   /** Ticks remaining before this tank may fire again. */
   cooldown: number;
@@ -61,6 +67,13 @@ export interface ShellState {
   /** Velocity in units per second. */
   vx: number;
   vy: number;
+  /**
+   * Units per second, as fired. Kept alongside the velocity (rather than recomputed from it) so a shell
+   * travels exactly the same distance every tick.
+   */
+  speed: number;
+  /** Hit points this shell takes off the tank it hits. */
+  damage: number;
   bounces: number;
   ticksLeft: number;
 }
@@ -96,14 +109,31 @@ export interface AiMemory {
   recoverTurn: -1 | 1;
 }
 
-export interface MatchOptions {
-  aiCount: number;
-  rounds: number;
-}
+export type GameMode = 'lastOneStanding' | 'waves';
 
+export type MatchOptions =
+  { mode: 'lastOneStanding'; aiCount: number; rounds: number } | { mode: 'waves'; startAiCount: number };
+
+/**
+ * `roundOver` is the pause after a round (Last One Standing) or a cleared wave (Waves). In Waves,
+ * `MatchState.round` is the wave number.
+ */
 export type Phase = 'countdown' | 'playing' | 'roundOver' | 'gameOver';
 export type RoundOutcome = 'human' | 'ai' | 'draw';
-export type GameResult = 'win' | 'loss' | 'draw';
+export type LastOneStandingResult = 'win' | 'loss' | 'draw';
+/** `over` ends every Waves game: the score is the number of waves cleared. */
+export type GameResult = LastOneStandingResult | 'over';
+
+/**
+ * What a wave changed for the AI tanks, compared with the wave before. `thinnerArmour`: more tanks, each with less
+ * armour. The rest are escalation steps; `lethal` is the damage step after which one hit destroys a human.
+ */
+export type WaveChange = 'thinnerArmour' | 'armour' | 'damage' | 'lethal' | 'speed';
+
+export interface WavesState {
+  startAiCount: number;
+  cleared: number;
+}
 
 export interface Scores {
   human: number;
@@ -125,6 +155,8 @@ export interface MatchState {
   scores: Scores;
   lastRoundOutcome: RoundOutcome | null;
   result: GameResult | null;
+  /** The Waves mode's own data; null in Last One Standing. */
+  waves: WavesState | null;
   tanks: TankState[];
   shells: ShellState[];
   nextShellId: number;
@@ -152,7 +184,10 @@ export type SimEvent =
     }
   | { type: 'eliminated'; tankId: string; byId: string; x: number; y: number }
   | { type: 'roundEnded'; round: number; outcome: RoundOutcome; scores: Scores }
-  | { type: 'gameEnded'; result: GameResult; scores: Scores };
+  | { type: 'gameEnded'; result: LastOneStandingResult; scores: Scores }
+  | { type: 'waveStarted'; wave: number; aiCount: number; changes: WaveChange[] }
+  | { type: 'waveCleared'; wave: number; cleared: number }
+  | { type: 'gameEnded'; result: 'over'; wavesCleared: number };
 
 /** Inputs for one tick, keyed by tank id. Tanks without an entry are treated as idle. */
 export type InputMap = Readonly<Record<string, TankInput | undefined>>;

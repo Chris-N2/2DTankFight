@@ -1,4 +1,5 @@
 import type { TankInput } from '@tank/sim';
+import type { MenuAction } from './gamepad';
 
 /** Keys the game uses while a round is in progress (KeyboardEvent.code, so layout-independent). */
 export const GAME_KEYS: ReadonlySet<string> = new Set([
@@ -24,6 +25,25 @@ export function inputFromKeys(pressed: ReadonlySet<string>): TankInput {
     turn: left === right ? 0 : left ? -1 : 1,
     fire: pressed.has('Space'),
   };
+}
+
+const MENU_KEYS: Readonly<Record<string, MenuAction>> = {
+  ArrowUp: 'up',
+  KeyW: 'up',
+  ArrowDown: 'down',
+  KeyS: 'down',
+  ArrowLeft: 'left',
+  KeyA: 'left',
+  ArrowRight: 'right',
+  KeyD: 'right',
+};
+
+/**
+ * The menu move a key makes on the setup and result screens, or null. The driving keys move round the menus
+ * just as the d-pad does; Enter and Space are left to the focused button.
+ */
+export function menuActionForKey(code: string): MenuAction | null {
+  return MENU_KEYS[code] ?? null;
 }
 
 /** The parts of a KeyboardEvent we use, so the handler can be tested without a DOM. */

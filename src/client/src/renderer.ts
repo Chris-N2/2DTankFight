@@ -29,6 +29,26 @@ export function snapshot(state: MatchState): Snapshot {
   return { tanks, shells };
 }
 
+/**
+ * Where to draw a tank this frame, between its previous and current tick. A tank that's new this tick
+ * (say, one joining at a wave start) or that teleported (a respawn) is drawn where it is, not swept there.
+ */
+export function tankPose(
+  tank: Pick<TankState, 'id' | 'x' | 'y' | 'heading'>,
+  prev: Snapshot | null,
+  alpha: number,
+): { x: number; y: number; heading: number } {
+  const p = prev?.tanks[tank.id];
+  if (!p || Math.hypot(tank.x - p.x, tank.y - p.y) >= TELEPORT_DISTANCE) {
+    return { x: tank.x, y: tank.y, heading: tank.heading };
+  }
+  return {
+    x: lerp(p.x, tank.x, alpha),
+    y: lerp(p.y, tank.y, alpha),
+    heading: lerpAngle(p.heading, tank.heading, alpha),
+  };
+}
+
 export function colorOf(state: MatchState, id: string): string {
   const tank = state.tanks.find((t) => t.id === id);
   return PALETTE[(tank?.colorIndex ?? 0) % PALETTE.length]!;
@@ -88,11 +108,7 @@ export class Renderer {
 
     for (const tank of state.tanks) {
       if (!tank.alive) continue;
-      const p = prev?.tanks[tank.id];
-      const near = p && Math.hypot(tank.x - p.x, tank.y - p.y) < TELEPORT_DISTANCE;
-      const x = near ? lerp(p.x, tank.x, alpha) : tank.x;
-      const y = near ? lerp(p.y, tank.y, alpha) : tank.y;
-      const heading = near ? lerpAngle(p.heading, tank.heading, alpha) : tank.heading;
+      const { x, y, heading } = tankPose(tank, prev, alpha);
       this.drawTank(state, tank, x, y, heading, effects.isFlashing(tank.id, now), now);
     }
 

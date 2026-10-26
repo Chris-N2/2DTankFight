@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { bannerFor, gameOverText, hpPips, roundLine, scoreLine } from '../src/screens';
 
 function match(): MatchState {
-  return createMatch({ aiCount: 2, rounds: 5 }, PROVING_GROUND, 1);
+  return createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds: 5 }, PROVING_GROUND, 1);
 }
 
 describe('round and game flow text', () => {

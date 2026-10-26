@@ -4,8 +4,15 @@ A top-down tank battle for the browser, in the spirit of **Combat** for the Atar
 Drive, hide behind cover, and shoot shells that bounce once. They aren't fussy about whom they hit next,
 and that includes you.
 
-Currently playable: **single-player Last One Standing** against 1–4 AI tanks, over 1, 3, 5 or 7 rounds.
-Waves (co-op), mortars, tank designs, more boards and two-player online play are on the way. See
+Currently playable, single-player:
+
+- **Last One Standing** against 1–4 AI tanks, over 1, 3, 5 or 7 rounds. Every tank for itself.
+- **Waves**: survive wave after wave of AI tanks, starting with 1–4. Each wave brings one more tank, up to four;
+  after that they get tougher armour, then harder hits (until one hit is lethal), then faster shells. The AI tanks
+  work together and hold fire rather than shoot each other, though a stray bounce still counts. Your armour is
+  restored every wave, and your best run is remembered on this device.
+
+Two-player co-op, mortars, tank designs, more boards and online play are on the way. See
 [CLAUDE.md](CLAUDE.md) for the full vision.
 
 ## Running it
@@ -27,7 +34,7 @@ Best played with a gamepad. The keyboard and a gamepad both work at any time.
 | Turn left / right | <kbd>A</kbd> / <kbd>D</kbd> or <kbd>←</kbd> / <kbd>→</kbd> | Left stick (analogue: push further to turn faster), or d-pad |
 | Fire | <kbd>Space</kbd> (one shell per press) | <kbd>A</kbd> or <kbd>RT</kbd> (one shell per press) |
 | Pause / resume | <kbd>Esc</kbd> (switching tabs pauses too) | <kbd>Start</kbd> (unplugging the pad pauses too) |
-| Menus | <kbd>Tab</kbd> and <kbd>Enter</kbd> | D-pad or stick to move, <kbd>A</kbd> to select, <kbd>B</kbd> to go back |
+| Menus | Arrows or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move (<kbd>Tab</kbd> works too), <kbd>Enter</kbd> or <kbd>Space</kbd> to select | D-pad or stick to move, <kbd>A</kbd> to select, <kbd>B</kbd> to go back |
 
 Browsers only reveal a gamepad once one of its buttons has been pressed on the page, so press any button when you
 arrive and the setup screen will confirm it's been detected. Button names are Xbox-style; on other pads, use the button
