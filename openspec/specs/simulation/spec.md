@@ -33,18 +33,29 @@ SHALL be runnable unchanged in both a browser and Node.js.
 - **THEN** the choice comes from the simulation's seeded random number generator, so the same seed yields the same choice
 
 ### Requirement: Tank input model
-Each tank SHALL be controlled each tick by an input consisting of: throttle (forward, reverse or none), turn (left,
-right or none) and fire (held or not held). The turret SHALL be fixed to the hull and always point in the direction
-the tank faces. Inputs for eliminated tanks SHALL be ignored.
+Each tank SHALL be controlled each tick by an input consisting of: throttle (forward, reverse or none), turn (a
+number from −1, full left, to 1, full right, where 0 is no turn and values in between turn part-way) and fire (held or
+not held). A turn value outside −1 to 1 SHALL be clamped into that range, and a turn value that is not a finite
+number SHALL be treated as 0. The turret SHALL be fixed to the hull and always point in the direction the tank faces.
+Inputs for eliminated tanks SHALL be ignored.
 
 #### Scenario: Missing input means idle
 - **WHEN** no input is supplied for a live tank on a tick
 - **THEN** the tank behaves as if throttle, turn and fire were all inactive
 
+#### Scenario: Out-of-range turn is clamped
+- **WHEN** a tank is given a turn value of 2.5 for one tick
+- **THEN** it turns exactly as it would with a turn value of 1
+
+#### Scenario: Invalid turn is ignored
+- **WHEN** a tank is given a turn value that is not a finite number (for example NaN) for one tick
+- **THEN** it does not turn, and the simulation stays deterministic
+
 ### Requirement: Tank movement
-A tank SHALL rotate at a fixed turn rate while turning, move forward along its heading at a fixed speed when throttle
-is forward, and move backward at a reduced fixed speed when throttle is reverse. Turning and moving SHALL be able to
-happen in the same tick.
+A tank SHALL rotate at its fixed turn rate multiplied by the size of its turn input, so a full turn input turns at
+the full rate and a partial one turns proportionally slower. It SHALL move forward along its heading at a fixed speed
+when throttle is forward, and move backward at a reduced fixed speed when throttle is reverse. Turning and moving
+SHALL be able to happen in the same tick.
 
 #### Scenario: Driving forward
 - **WHEN** a tank facing east with no obstruction holds forward throttle for one tick
@@ -57,6 +68,10 @@ happen in the same tick.
 #### Scenario: Turning on the spot
 - **WHEN** a tank holds turn left with no throttle for one tick
 - **THEN** its heading changes anticlockwise by the turn rate multiplied by the tick duration and its position is unchanged
+
+#### Scenario: Partial turn
+- **WHEN** a tank holds a turn value of 0.5 with no throttle for one tick
+- **THEN** its heading changes clockwise by half the turn rate multiplied by the tick duration
 
 ### Requirement: Tank collisions
 A tank SHALL NOT overlap obstacles, the arena boundary or another live tank. When movement would cause an overlap, the
