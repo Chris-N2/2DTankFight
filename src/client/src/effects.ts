@@ -2,7 +2,7 @@ import type { SimEvent } from '@tank/sim';
 
 /** A purely visual effect, in world coordinates, timed in real milliseconds. */
 interface Effect {
-  kind: 'flash' | 'spark' | 'ring' | 'explosion';
+  kind: 'flash' | 'spark' | 'ring' | 'explosion' | 'mud';
   x: number;
   y: number;
   start: number;
@@ -10,11 +10,16 @@ interface Effect {
   /** Debris for explosions and sparks: direction (radians) and speed (units/s) per particle. */
   particles: { angle: number; speed: number; size: number }[];
   color: string;
+  /** How far a mud splash spreads. */
+  radius: number;
 }
 
 const SPARK_COLOR = '#ffe9a8';
 const FLASH_COLOR = '#fff4c2';
 const HIT_FLASH_MS = 120;
+const LAUNCH_COLOR = '#d9d2bf';
+const MUD_COLOR = '#6b4826';
+const MUD_SPLATTER = '#8a6038';
 
 /**
  * Turns simulation events into short-lived visual effects. Visual randomness is fine here:
@@ -24,8 +29,16 @@ export class Effects {
   private effects: Effect[] = [];
   private flashUntil = new Map<string, number>();
 
-  add(event: SimEvent, now: number, tankColor: (id: string) => string): void {
+  /** `splashRadius` sizes mortar splashes to match the simulation's. */
+  add(event: SimEvent, now: number, tankColor: (id: string) => string, splashRadius = 60): void {
     switch (event.type) {
+      case 'mortarLaunched':
+        this.push('flash', event.x, event.y, now, 160, 0, LAUNCH_COLOR);
+        this.push('spark', event.x, event.y, now, 300, 5, LAUNCH_COLOR);
+        break;
+      case 'mortarLanded':
+        this.push('mud', event.x, event.y, now, 1100, 26, MUD_SPLATTER, splashRadius);
+        break;
       case 'shotFired':
         this.push('flash', event.x, event.y, now, 90, 0, FLASH_COLOR);
         break;
@@ -90,6 +103,15 @@ export class Effects {
           drawParticles(ctx, e, age);
           break;
         }
+        case 'mud': {
+          // A splat that spreads quickly to the splash radius and soaks away, with clods thrown out.
+          ctx.fillStyle = MUD_COLOR;
+          ctx.globalAlpha = 0.75 * (1 - t);
+          disc(ctx, e.x, e.y, e.radius * Math.min(1, t * 6));
+          ctx.globalAlpha = 1 - t;
+          drawParticles(ctx, e, age);
+          break;
+        }
       }
       ctx.restore();
     }
@@ -103,13 +125,14 @@ export class Effects {
     duration: number,
     count: number,
     color: string,
+    radius = 0,
   ): void {
     const particles = Array.from({ length: count }, () => ({
       angle: Math.random() * Math.PI * 2,
-      speed: 60 + Math.random() * (kind === 'explosion' ? 220 : 120),
-      size: 1.5 + Math.random() * (kind === 'explosion' ? 4 : 1.5),
+      speed: 60 + Math.random() * (kind === 'explosion' || kind === 'mud' ? 220 : 120),
+      size: 1.5 + Math.random() * (kind === 'explosion' || kind === 'mud' ? 4 : 1.5),
     }));
-    this.effects.push({ kind, x, y, start, duration, particles, color });
+    this.effects.push({ kind, x, y, start, duration, particles, color, radius });
   }
 }
 

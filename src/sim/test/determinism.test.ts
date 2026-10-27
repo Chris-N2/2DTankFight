@@ -16,13 +16,14 @@ function scripted(tick: number): TankInput {
     throttle: tick % 150 < 100 ? 1 : tick % 150 < 120 ? -1 : 0,
     turn: tick % 70 < 20 ? -1 : tick % 70 < 35 ? 1 : 0,
     fire: tick % 17 < 3,
+    mortar: tick % 400 > 360,
   };
 }
 
 function run(
   seed: number,
   ticks: number,
-  options: MatchOptions = { mode: 'lastOneStanding', aiCount: 4, rounds: 7 },
+  options: MatchOptions = { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
 ): { state: unknown; events: SimEvent[] } {
   const state = createMatch(options, PROVING_GROUND, seed);
   const events: SimEvent[] = [];
@@ -40,12 +41,25 @@ describe('simulation: determinism', () => {
   });
 
   test('Deterministic replay in Waves', () => {
-    const options: MatchOptions = { mode: 'waves', startAiCount: 2 };
+    const options: MatchOptions = { mode: 'waves', startAiCount: 2, mortars: false };
     const a = run(2468, 3000, options);
     const b = run(2468, 3000, options);
     expect(a.state).toEqual(b.state);
     expect(a.events).toEqual(b.events);
     expect(a.events.length).toBeGreaterThan(0);
+  });
+
+  test('Deterministic replay with mortars', () => {
+    for (const options of [
+      { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: true },
+      { mode: 'waves', startAiCount: 2, mortars: true },
+    ] satisfies MatchOptions[]) {
+      const a = run(777, 3000, options);
+      const b = run(777, 3000, options);
+      expect(a.state).toEqual(b.state);
+      expect(a.events).toEqual(b.events);
+      expect(ofType(a.events, 'mortarLaunched').length).toBeGreaterThan(0);
+    }
   });
 
   test('Randomness is seeded: different seeds diverge', () => {
@@ -55,7 +69,11 @@ describe('simulation: determinism', () => {
   test('Runs headless in Node', () => {
     // No DOM here: this test runs in Vitest's Node environment.
     expect(typeof (globalThis as Record<string, unknown>)['document']).toBe('undefined');
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 1 }, PROVING_GROUND, 2026);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: false },
+      PROVING_GROUND,
+      2026,
+    );
     const events: SimEvent[] = [];
     for (let i = 0; i < 120 * 60 && state.phase !== 'gameOver'; i++) events.push(...step(state, {}));
     expect(ofType(events, 'roundEnded')).toHaveLength(1);

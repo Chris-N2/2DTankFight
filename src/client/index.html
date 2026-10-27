@@ -14,6 +14,9 @@
         <div class="hud-cell">
           <span class="hud-label">Armour</span> <span id="hud-hp" class="hud-hp"></span>
         </div>
+        <div class="hud-cell hidden" id="hud-mortar-cell">
+          <span class="hud-label">Mortar</span> <span id="hud-mortar" class="hud-mortar"></span>
+        </div>
         <div class="hud-cell" id="hud-round"></div>
         <div class="hud-cell" id="hud-score"></div>
       </div>
@@ -43,6 +46,10 @@
             <span class="option-label">Starting AI tanks</span>
             <div class="choices" id="opt-start-ai" role="radiogroup" aria-label="Starting AI tanks"></div>
           </div>
+          <div class="option">
+            <span class="option-label">Mortars</span>
+            <div class="choices" id="opt-mortars" role="radiogroup" aria-label="Mortars"></div>
+          </div>
           <button id="start" class="primary">Start</button>
           <table class="controls">
             <thead>
@@ -64,6 +71,11 @@
                 <td><kbd>A</kbd> or <kbd>RT</kbd></td>
               </tr>
               <tr>
+                <th scope="row">Mortar</th>
+                <td>Hold <kbd>Shift</kbd> to aim, release to lob</td>
+                <td>Hold <kbd>LB</kbd> or <kbd>RB</kbd></td>
+              </tr>
+              <tr>
                 <th scope="row">Pause</th>
                 <td><kbd>Esc</kbd></td>
                 <td><kbd>Start</kbd></td>
@@ -73,6 +85,9 @@
           <p id="pad-status" class="pad-status" aria-live="polite"></p>
           <p class="hint">Best played with a gamepad.</p>
           <p class="hint">Shells bounce once, and they aren't fussy about whom they hit next.</p>
+          <p class="hint">
+            One mortar per round: it lobs over walls and bogs tanks down in mud. Including yours.
+          </p>
         </div>
       </div>
 

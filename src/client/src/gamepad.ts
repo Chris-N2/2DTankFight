@@ -16,9 +16,9 @@ export const BUTTON = {
   A: 0,
   /** Right face button. */
   B: 1,
-  /** Reserved for mortars. */
+  /** Mortar. */
   LB: 4,
-  /** Reserved for mortars. */
+  /** Mortar. */
   RB: 5,
   RT: 7,
   START: 9,
@@ -66,6 +66,7 @@ export function inputFromGamepad(pad: GamepadSnapshot): TankInput {
     throttle: y <= -STICK_THROTTLE_THRESHOLD ? 1 : y >= STICK_THROTTLE_THRESHOLD ? -1 : 0,
     turn: Math.sign(x) * Math.min(1, sideways),
     fire: false,
+    mortar: false,
   };
 
   const up = isPressed(pad, BUTTON.UP);
@@ -76,6 +77,7 @@ export function inputFromGamepad(pad: GamepadSnapshot): TankInput {
     throttle: up === down ? 0 : up ? 1 : -1,
     turn: left === right ? 0 : left ? -1 : 1,
     fire: isPressed(pad, BUTTON.A) || (pad.buttons[BUTTON.RT]?.value ?? 0) >= TRIGGER_THRESHOLD,
+    mortar: isPressed(pad, BUTTON.LB) || isPressed(pad, BUTTON.RB),
   };
 
   return combineInputs(fromStick, fromDpad);

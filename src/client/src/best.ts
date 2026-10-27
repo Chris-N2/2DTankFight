@@ -1,6 +1,6 @@
 // The best number of waves cleared on this device, kept per starting AI count (starting with 4 is a
-// different game from starting with 1). The best score is a nicety: if storage is blocked or broken,
-// everything here quietly reports "unavailable" and the game plays on.
+// different game from starting with 1) and per mortars setting (so is having a mortar). The best score is a
+// nicety: if storage is blocked or broken, everything here quietly reports "unavailable" and the game plays on.
 
 /** The part of the Web Storage API used here, so tests can pass a fake. */
 export interface StorageLike {
@@ -15,8 +15,12 @@ export interface BestResult {
   isNew: boolean;
 }
 
-export function bestKey(startAiCount: number): string {
-  return `tank-command.waves-best.${startAiCount}`;
+/**
+ * Bests set before mortars existed live under the plain key, so with mortars off they carry on as the
+ * classic bests.
+ */
+export function bestKey(startAiCount: number, mortars: boolean): string {
+  return `tank-command.waves-best.${startAiCount}${mortars ? '.mortars' : ''}`;
 }
 
 /** The browser's local storage, or null if it's blocked (some privacy settings throw on access). */
@@ -35,11 +39,12 @@ export function browserStorage(): StorageLike | null {
 export function recordBest(
   storage: StorageLike | null,
   startAiCount: number,
+  mortars: boolean,
   cleared: number,
 ): BestResult | null {
   if (!storage) return null;
   try {
-    const key = bestKey(startAiCount);
+    const key = bestKey(startAiCount, mortars);
     const stored = storage.getItem(key);
     const previous = stored === null ? null : Number.parseInt(stored, 10);
     const known = previous !== null && Number.isFinite(previous) && previous >= 0 ? previous : null;

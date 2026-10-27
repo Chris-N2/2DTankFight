@@ -31,9 +31,19 @@ export interface TankInput {
   turn: number;
   /** Fire button held this tick. A shell is fired on the transition from released to held. */
   fire: boolean;
+  /**
+   * Mortar button held this tick (absent = not held). Pressing starts charging; releasing launches at the
+   * charged range.
+   */
+  mortar?: boolean;
 }
 
-export const IDLE_INPUT: Readonly<TankInput> = Object.freeze({ throttle: 0, turn: 0, fire: false });
+export const IDLE_INPUT: Readonly<TankInput> = Object.freeze({
+  throttle: 0,
+  turn: 0,
+  fire: false,
+  mortar: false,
+});
 
 export type TankKind = 'human' | 'ai';
 
@@ -57,6 +67,31 @@ export interface TankState {
   cooldown: number;
   /** Whether fire was held on the previous tick (for edge-triggered firing). */
   fireHeld: boolean;
+  /** Mortars loaded: 1 or 0. Set by the mode's rules at the start of each round or wave. */
+  mortars: number;
+  /** Ticks the mortar button has been held while charging, or -1 when not charging. */
+  mortarCharge: number;
+  /** Whether the mortar button was held on the previous tick (for edge-triggered charging). */
+  mortarHeld: boolean;
+  /** Ticks of mortar slow remaining; 0 when not slowed. */
+  slowTicks: number;
+}
+
+/**
+ * A mortar in flight. It travels in a straight line over the ground from launch to landing point and touches
+ * nothing on the way; its height is purely for drawing.
+ */
+export interface MortarState {
+  id: number;
+  ownerId: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  /** Total flight time in ticks. */
+  flightTicks: number;
+  /** Ticks until it lands. */
+  ticksLeft: number;
 }
 
 export interface ShellState {
@@ -107,12 +142,22 @@ export interface AiMemory {
   stuckRefY: number;
   recoverTicks: number;
   recoverTurn: -1 | 1;
+  /** Consecutive ticks the current target has been hidden from this AI's turret. */
+  hiddenTicks: number;
+  /**
+   * The mortar lob this AI has committed to, or null when not lobbing. It keeps its own target, apart from
+   * `targetId`, so a retarget mid-lob can't swing it round onto a tank the AI could simply shoot. `x`/`y` is that
+   * target's last known position, so a lob can still be finished if the target is destroyed mid-charge.
+   */
+  lob: { targetId: string; x: number; y: number; range: number; aimOffset: number } | null;
 }
 
 export type GameMode = 'lastOneStanding' | 'waves';
 
+/** `mortars: false` is classic play: nobody has a mortar. */
 export type MatchOptions =
-  { mode: 'lastOneStanding'; aiCount: number; rounds: number } | { mode: 'waves'; startAiCount: number };
+  | { mode: 'lastOneStanding'; aiCount: number; rounds: number; mortars: boolean }
+  | { mode: 'waves'; startAiCount: number; mortars: boolean };
 
 /**
  * `roundOver` is the pause after a round (Last One Standing) or a cleared wave (Waves). In Waves,
@@ -160,6 +205,8 @@ export interface MatchState {
   tanks: TankState[];
   shells: ShellState[];
   nextShellId: number;
+  mortarShells: MortarState[];
+  nextMortarId: number;
   /** Randomness for match decisions (spawn assignment). */
   rng: RngState;
   /** Separate randomness stream for AI, so AI changes don't reshuffle spawns. */
@@ -182,6 +229,16 @@ export type SimEvent =
       x: number;
       y: number;
     }
+  | {
+      type: 'mortarLaunched';
+      mortarId: number;
+      tankId: string;
+      x: number;
+      y: number;
+      toX: number;
+      toY: number;
+    }
+  | { type: 'mortarLanded'; mortarId: number; ownerId: string; x: number; y: number; slowedIds: string[] }
   | { type: 'eliminated'; tankId: string; byId: string; x: number; y: number }
   | { type: 'roundEnded'; round: number; outcome: RoundOutcome; scores: Scores }
   | { type: 'gameEnded'; result: LastOneStandingResult; scores: Scores }

@@ -1,4 +1,11 @@
-import { HUMAN_ID, type Board, type MatchState, type TankState } from '@tank/sim';
+import {
+  HUMAN_ID,
+  mortarLanding,
+  type Board,
+  type MatchState,
+  type MortarState,
+  type TankState,
+} from '@tank/sim';
 import type { Effects } from './effects';
 
 /** Tank colours by colorIndex. Index 0 is always the human. */
@@ -11,6 +18,10 @@ const WALL_EDGE = '#8a6d3f';
 const BORDER = '#8a6d3f';
 const SHELL = '#fff8dc';
 const OUTLINE = '#141810';
+const MORTAR = '#3b3a32';
+const SHADOW = 'rgba(0, 0, 0, 0.35)';
+const MUD = '#5a3d22';
+const MUD_LIGHT = '#7a5532';
 
 /** Render-relevant positions captured before a tick, so frames can interpolate between ticks. */
 export interface Snapshot {
@@ -46,6 +57,29 @@ export function tankPose(
     x: lerp(p.x, tank.x, alpha),
     y: lerp(p.y, tank.y, alpha),
     heading: lerpAngle(p.heading, tank.heading, alpha),
+  };
+}
+
+/** Peak height of a mortar's arc, as a fraction of its range. */
+const MORTAR_ARC = 0.3;
+
+/**
+ * Where to draw a mortar this frame. It moves steadily over the ground from launch to landing point; its height
+ * is just for show, a parabola peaking mid-flight at a fraction of the range, so longer lobs arc higher.
+ */
+export function mortarPose(
+  mortar: MortarState,
+  alpha: number,
+): { x: number; y: number; height: number; progress: number } {
+  // ticksLeft has already counted down this tick, so alpha = 0 is the previous tick's position.
+  const elapsed = mortar.flightTicks - mortar.ticksLeft - 1 + alpha;
+  const progress = Math.max(0, Math.min(1, elapsed / mortar.flightTicks));
+  const range = Math.hypot(mortar.toX - mortar.fromX, mortar.toY - mortar.fromY);
+  return {
+    x: lerp(mortar.fromX, mortar.toX, progress),
+    y: lerp(mortar.fromY, mortar.toY, progress),
+    height: 4 * MORTAR_ARC * range * progress * (1 - progress),
+    progress,
   };
 }
 
@@ -106,13 +140,82 @@ export class Renderer {
       ctx.fill();
     }
 
+    for (const mortar of state.mortarShells) this.drawLandingMarker(state, mortar);
+
     for (const tank of state.tanks) {
       if (!tank.alive) continue;
       const { x, y, heading } = tankPose(tank, prev, alpha);
       this.drawTank(state, tank, x, y, heading, effects.isFlashing(tank.id, now), now);
+      if (tank.id === HUMAN_ID && tank.mortarCharge >= 0) this.drawReticle(state, tank, x, y, heading);
     }
 
     effects.draw(ctx, now);
+
+    // Mortars fly above everything else.
+    for (const mortar of state.mortarShells) this.drawMortar(mortar, alpha);
+  }
+
+  /** Where your mortar will land if you let go now, with the splash it'll make. */
+  private drawReticle(state: MatchState, tank: TankState, x: number, y: number, heading: number): void {
+    const ctx = this.ctx;
+    const at = mortarLanding(state, { ...tank, x, y, heading }, tank.mortarCharge);
+    const color = colorOf(state, tank.id);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.45;
+    ctx.setLineDash([3, 7]);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(at.x, at.y);
+    ctx.stroke();
+    ctx.globalAlpha = 0.85;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.arc(at.x, at.y, state.config.mortarSplashRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(at.x - 8, at.y);
+    ctx.lineTo(at.x + 8, at.y);
+    ctx.moveTo(at.x, at.y - 8);
+    ctx.lineTo(at.x, at.y + 8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** A faint ring where a mortar in flight will come down, in its owner's colour. */
+  private drawLandingMarker(state: MatchState, mortar: MortarState): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = colorOf(state, mortar.ownerId);
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(mortar.toX, mortar.toY, state.config.mortarSplashRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** The shell up on its arc, and its shadow on the ground beneath it. */
+  private drawMortar(mortar: MortarState, alpha: number): void {
+    const ctx = this.ctx;
+    const { x, y, height } = mortarPose(mortar, alpha);
+    // The higher it is, the smaller and fainter its shadow, and the bigger the shell looks.
+    const lift = Math.min(1, height / 120);
+    ctx.fillStyle = SHADOW;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 6 - 2 * lift, 3.5 - 1 * lift, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = MORTAR;
+    ctx.strokeStyle = SHELL;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y - height, 5 + 3 * lift, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
 
   /** Clears the canvas and sets up the world-to-screen transform. */
@@ -210,6 +313,7 @@ export class Renderer {
     ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    if (tank.slowTicks > 0) drawMud(ctx);
     ctx.restore();
 
     if (isYou) {
@@ -222,6 +326,32 @@ export class Renderer {
       ctx.fillStyle = color;
       ctx.fillText('YOU', x, y - 30);
     }
+  }
+}
+
+/** Mud caked over the tracks and splashed up the hull: this tank is bogged down. Drawn in the tank's frame. */
+function drawMud(ctx: CanvasRenderingContext2D): void {
+  const blobs: readonly [number, number, number][] = [
+    [-12, -12, 5],
+    [-2, -13, 4],
+    [10, -11, 5],
+    [-9, 12, 5],
+    [3, 11, 4],
+    [13, 13, 4],
+    [-6, -3, 3],
+    [7, 5, 3],
+  ];
+  ctx.fillStyle = MUD;
+  for (const [x, y, r] of blobs) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = MUD_LIGHT;
+  for (const [x, y, r] of blobs) {
+    ctx.beginPath();
+    ctx.arc(x - 1, y - 1, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 

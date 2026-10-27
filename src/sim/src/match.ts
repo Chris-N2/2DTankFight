@@ -49,6 +49,8 @@ export function createMatch(
     tanks: [createTank(cfg, HUMAN_ID, 'human', 0)],
     shells: [],
     nextShellId: 1,
+    mortarShells: [],
+    nextMortarId: 1,
     rng: createRng(seed),
     aiRng: createRng((seed ^ 0x5bd1e995) >>> 0),
     ai: {},
@@ -107,12 +109,13 @@ export function step(state: MatchState, inputs: InputMap): SimEvent[] {
 
 /**
  * Starts the next round or wave: the mode's rules set up the tanks, then every tank is reset and spawned,
- * shells and AI memory are cleared, and the countdown starts.
+ * shells, mortars in flight and AI memory are cleared, and the countdown starts.
  */
 function startRound(state: MatchState, events: SimEvent[]): void {
   const cfg = state.config;
   state.round++;
   state.shells = [];
+  state.mortarShells = [];
   state.ai = {};
   rulesFor(state).setUp(state, events);
 
@@ -129,6 +132,9 @@ function startRound(state: MatchState, events: SimEvent[]): void {
     tank.alive = true;
     tank.cooldown = 0;
     tank.fireHeld = false;
+    tank.mortarCharge = -1;
+    tank.mortarHeld = false;
+    tank.slowTicks = 0;
     if (tank.kind === 'ai') state.ai[tank.id] = createAiMemory();
   });
 

@@ -35,7 +35,7 @@ export function makeBoard(obstacles: Rect[] = [], width = 800, height = 600): Bo
 
 /** A match that has skipped the countdown and is in play. */
 export function playing(board: Board = makeBoard(), aiCount = 1, seed = 1, rounds = 5): MatchState {
-  const state = createMatch({ mode: 'lastOneStanding', aiCount, rounds }, board, seed);
+  const state = createMatch({ mode: 'lastOneStanding', aiCount, rounds, mortars: false }, board, seed);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;
@@ -43,7 +43,7 @@ export function playing(board: Board = makeBoard(), aiCount = 1, seed = 1, round
 
 /** A Waves match that has skipped wave 1's countdown and is in play. */
 export function playingWaves(board: Board = makeBoard(), startAiCount = 1, seed = 1): MatchState {
-  const state = createMatch({ mode: 'waves', startAiCount }, board, seed);
+  const state = createMatch({ mode: 'waves', startAiCount, mortars: false }, board, seed);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;

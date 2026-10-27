@@ -1,5 +1,6 @@
 import { ticks, tickDuration } from '../config';
 import { angleDiff, distance, lineOfSight } from '../geometry';
+import { mortarRange } from '../mortar';
 import { cellAt, cellCenter, findNearest, findPath, nearestWalkable } from '../nav';
 import { nextFloat, nextRange } from '../rng';
 import type { AiMemory, MatchState, TankInput, TankState } from '../types';
@@ -12,7 +13,7 @@ const DRIVE_ANGLE = (35 * Math.PI) / 180;
  * Half-width of the firing lane an AI wants clear before engaging. A bare centre-to-centre line of
  * sight isn't enough: with aim error, shells graze nearby corners and two AIs can trade misses forever.
  */
-const SHOT_LANE = 8;
+export const SHOT_LANE = 8;
 
 export function createAiMemory(): AiMemory {
   return {
@@ -30,6 +31,8 @@ export function createAiMemory(): AiMemory {
     stuckRefY: 0,
     recoverTicks: 0,
     recoverTurn: 1,
+    hiddenTicks: 0,
+    lob: null,
   };
 }
 
@@ -43,6 +46,25 @@ export function think(state: MatchState, tank: TankState): TankInput {
   if (mem.fireWaitTicks > 0) mem.fireWaitTicks--;
 
   const target = selectTarget(state, tank, mem);
+  const halfTurnStep = (cfg.tankTurnRate * tickDuration(cfg)) / 2;
+
+  // A lob is aimed at the tank it was meant for, whatever the AI retargets to meanwhile. Until the button is
+  // pressed it's called off (keeping the mortar) if that tank is destroyed or steps into a clear turret shot. Once
+  // charging, it's seen through, at the tank's last position if need be: it's short, and the AI is a sitting duck
+  // while it lasts.
+  if (mem.lob) {
+    const lobTarget = state.tanks.find((t) => t.id === mem.lob?.targetId && t.alive);
+    if (lobTarget) {
+      mem.lob.x = lobTarget.x;
+      mem.lob.y = lobTarget.y;
+    }
+    const charging = tank.mortarCharge >= 0;
+    const stillHidden =
+      lobTarget && !hasClearLane(tank.x, tank.y, lobTarget.x, lobTarget.y, state.board.obstacles, SHOT_LANE);
+    if (charging || stillHidden) return lob(state, tank, mem.lob, mem, halfTurnStep);
+    mem.lob = null;
+  }
+
   if (!target) return { throttle: 0, turn: 0, fire: false };
 
   if (mem.recoverTicks > 0) {
@@ -50,10 +72,10 @@ export function think(state: MatchState, tank: TankState): TankInput {
     return { throttle: -1, turn: mem.recoverTurn, fire: false };
   }
 
-  const halfTurnStep = (cfg.tankTurnRate * tickDuration(cfg)) / 2;
   const obstacles = state.board.obstacles;
 
   if (hasClearLane(tank.x, tank.y, target.x, target.y, obstacles, SHOT_LANE)) {
+    mem.hiddenTicks = 0;
     mem.seenTicks++;
     if (mem.seenTicks === 1) mem.aimOffset = rollAimError(state);
 
@@ -107,7 +129,62 @@ export function think(state: MatchState, tank: TankState): TankInput {
 
   mem.seenTicks = 0;
   mem.blockedTicks = 0;
+  mem.hiddenTicks++;
+  if (shouldLob(state, tank, target, mem)) {
+    const range = distance(tank.x, tank.y, target.x, target.y);
+    const error = nextRange(state.aiRng, -cfg.aiMortarRangeError, cfg.aiMortarRangeError);
+    mem.lob = {
+      targetId: target.id,
+      x: target.x,
+      y: target.y,
+      range: Math.min(cfg.mortarMaxRange, Math.max(cfg.mortarMinRange, range * (1 + error))),
+      aimOffset: rollAimError(state),
+    };
+    return lob(state, tank, mem.lob, mem, halfTurnStep);
+  }
   return navigate(state, tank, target, mem, halfTurnStep);
+}
+
+/**
+ * Whether to lob the mortar at a target hidden from the turret. The AI waits for the target to stay hidden a
+ * while (no round-start barrage), and only lobs within range. The minimum range is well outside the splash, so a
+ * lob at that range never catches the AI itself.
+ */
+function shouldLob(state: MatchState, tank: TankState, target: TankState, mem: AiMemory): boolean {
+  const cfg = state.config;
+  if (tank.mortars <= 0 || tank.mortarCharge >= 0) return false;
+  if (mem.hiddenTicks < ticks(cfg, cfg.aiMortarPatience)) return false;
+  const range = distance(tank.x, tank.y, target.x, target.y);
+  return range >= cfg.mortarMinRange && range <= cfg.mortarMaxRange;
+}
+
+/**
+ * One tick of a committed lob: stop, turn to face the lob's target, press the mortar button once lined up, hold
+ * until the charge reaches the planned range, then release (which launches).
+ */
+function lob(
+  state: MatchState,
+  tank: TankState,
+  plan: NonNullable<AiMemory['lob']>,
+  mem: AiMemory,
+  halfTurnStep: number,
+): TankInput {
+  const cfg = state.config;
+  const aim = Math.atan2(plan.y - tank.y, plan.x - tank.x) + plan.aimOffset;
+  const diff = angleDiff(tank.heading, aim);
+  const turn = Math.abs(diff) > halfTurnStep ? (diff > 0 ? 1 : -1) : 0;
+  mem.stuckTicks = 0;
+
+  if (tank.mortarCharge < 0) {
+    if (tank.mortars <= 0) {
+      mem.lob = null; // nothing left to lob (it can't happen in play, but never wait forever)
+      return { throttle: 0, turn, fire: false };
+    }
+    return { throttle: 0, turn, fire: false, mortar: Math.abs(diff) <= cfg.aiAimTolerance };
+  }
+  const hold = mortarRange(cfg, tank.mortarCharge) < plan.range;
+  if (!hold) mem.lob = null; // releasing this tick launches
+  return { throttle: 0, turn, fire: false, mortar: hold };
 }
 
 function selectTarget(state: MatchState, tank: TankState, mem: AiMemory): TankState | null {
@@ -131,6 +208,7 @@ function selectTarget(state: MatchState, tank: TankState, mem: AiMemory): TankSt
   if (best?.id !== current?.id) {
     mem.targetId = best?.id ?? null;
     mem.seenTicks = 0;
+    mem.hiddenTicks = 0;
     mem.path = [];
     mem.replanTicks = 0;
   }
@@ -258,7 +336,7 @@ function rollAimError(state: MatchState): number {
 }
 
 /** True if a lane of the given half-width between the two points is free of obstacles. */
-function hasClearLane(
+export function hasClearLane(
   ax: number,
   ay: number,
   bx: number,

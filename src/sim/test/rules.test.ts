@@ -13,40 +13,52 @@ const COUNTDOWN_TICKS = Math.round(cfg.countdownDuration * cfg.tickRate);
 const RESULT_TICKS = Math.round(cfg.roundResultDuration * cfg.tickRate);
 
 function playOut(rounds: number, outcomes: RoundOutcome[]): MatchState {
-  const state = createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds }, PROVING_GROUND, 77);
+  const state = createMatch(
+    { mode: 'lastOneStanding', aiCount: 2, rounds, mortars: false },
+    PROVING_GROUND,
+    77,
+  );
   for (const o of outcomes) finishRound(state, o);
   return state;
 }
 
 describe('last-one-standing: game options', () => {
   test('Valid options accepted', () => {
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 5 }, PROVING_GROUND, 1);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: false },
+      PROVING_GROUND,
+      1,
+    );
     expect(state.tanks.filter((t) => t.kind === 'ai')).toHaveLength(4);
     expect(state.tanks.filter((t) => t.kind === 'human')).toHaveLength(1);
-    expect(state.options).toMatchObject({ mode: 'lastOneStanding', rounds: 5 });
+    expect(state.options).toMatchObject({ mode: 'lastOneStanding', rounds: 5, mortars: false });
   });
 
   test('Out-of-range options rejected', () => {
     for (const options of [
-      { mode: 'lastOneStanding' as const, aiCount: 0, rounds: 5 },
-      { mode: 'lastOneStanding' as const, aiCount: 5, rounds: 5 },
-      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 0 },
-      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 2 },
-      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 4 },
-      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 9 },
-      { mode: 'lastOneStanding' as const, aiCount: 1.5, rounds: 3 },
+      { mode: 'lastOneStanding' as const, aiCount: 0, rounds: 5, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 5, rounds: 5, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 0, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 2, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 4, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 9, mortars: false },
+      { mode: 'lastOneStanding' as const, aiCount: 1.5, rounds: 3, mortars: false },
     ]) {
       expect(validateOptions(options)).not.toBeNull();
       expect(() => createMatch(options, PROVING_GROUND, 1)).toThrow();
     }
     for (const rounds of [1, 3, 5, 7])
-      expect(validateOptions({ mode: 'lastOneStanding', aiCount: 1, rounds })).toBeNull();
+      expect(validateOptions({ mode: 'lastOneStanding', aiCount: 1, rounds, mortars: false })).toBeNull();
   });
 });
 
 describe('last-one-standing: round start', () => {
   test('Countdown freezes tanks', () => {
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 4, rounds: 3 }, PROVING_GROUND, 8);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 4, rounds: 3, mortars: false },
+      PROVING_GROUND,
+      8,
+    );
     expect(state.phase).toBe('countdown');
     const before = JSON.stringify(state.tanks);
     for (let i = 0; i < COUNTDOWN_TICKS - 1; i++) {
@@ -61,7 +73,11 @@ describe('last-one-standing: round start', () => {
   });
 
   test('Full health at round start', () => {
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 3, rounds: 5 }, PROVING_GROUND, 4);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 3, rounds: 5, mortars: false },
+      PROVING_GROUND,
+      4,
+    );
     for (const t of state.tanks) expect(t.hp).toBe(cfg.tankMaxHp);
     finishRound(state, 'human');
     skipToPlay(state);
@@ -181,7 +197,11 @@ describe('last-one-standing: game end', () => {
 
 describe('last-one-standing: rounds are independent', () => {
   test('Fresh round', () => {
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds: 5 }, PROVING_GROUND, 31);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false },
+      PROVING_GROUND,
+      31,
+    );
     const configBefore = JSON.stringify(state.config);
     skipToPlay(state);
     for (let i = 0; i < 30; i++) step(state, {}); // let the AI build up some memory

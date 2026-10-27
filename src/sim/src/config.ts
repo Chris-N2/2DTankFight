@@ -23,6 +23,26 @@ export interface SimConfig {
   muzzleOffset: number;
   fireCooldown: number;
 
+  /**
+   * Mortar: the landing distance of a quick tap. Must be more than the splash radius plus two tank radii, so a
+   * tap never catches the firer.
+   */
+  mortarMinRange: number;
+  /** Mortar: the landing distance at full charge. */
+  mortarMaxRange: number;
+  /** Mortar: how long the button must be held to charge from minimum to maximum range, seconds. */
+  mortarChargeTime: number;
+  /** Mortar: time from launch to landing, whatever the range, seconds. */
+  mortarFlightTime: number;
+  /** Mortar: tanks whose body comes within this distance of the landing point are slowed. */
+  mortarSplashRadius: number;
+  /** Mortar: driving speed multiplier while slowed. Turning is unaffected. */
+  mortarSlowFactor: number;
+  /** Mortar: how long a splash slows a tank, seconds. */
+  mortarSlowDuration: number;
+  /** Mortar: tanks can't drive while charging. A playtest switch for comparing feel; not shown in the UI. */
+  mortarPlantWhileCharging: boolean;
+
   countdownDuration: number;
   /** The pause after a round, or after a cleared wave, seconds. */
   roundResultDuration: number;
@@ -56,6 +76,10 @@ export interface SimConfig {
    * Keeps it from always firing the instant it can, which no human manages.
    */
   aiFirePauseMax: number;
+  /** How long an AI's target must stay hidden behind cover before the AI lobs its mortar, seconds. */
+  aiMortarPatience: number;
+  /** Maximum random error in an AI's mortar range either side of exact, as a fraction of the distance. */
+  aiMortarRangeError: number;
   /** How often an AI re-evaluates its target, seconds. */
   aiRetargetInterval: number;
   /** How often an AI re-plans its route, seconds. */
@@ -93,6 +117,15 @@ export const DEFAULT_CONFIG: Readonly<SimConfig> = Object.freeze({
   muzzleOffset: 6,
   fireCooldown: 0.5,
 
+  mortarMinRange: 150,
+  mortarMaxRange: 600,
+  mortarChargeTime: 1,
+  mortarFlightTime: 0.8,
+  mortarSplashRadius: 60,
+  mortarSlowFactor: 0.5,
+  mortarSlowDuration: 2.5,
+  mortarPlantWhileCharging: false,
+
   countdownDuration: 3,
   roundResultDuration: 2.5,
 
@@ -107,6 +140,8 @@ export const DEFAULT_CONFIG: Readonly<SimConfig> = Object.freeze({
   aiAimError: 3 * DEG,
   aiAimTolerance: 4 * DEG,
   aiFirePauseMax: 0.15,
+  aiMortarPatience: 2,
+  aiMortarRangeError: 0.08,
   aiRetargetInterval: 0.5,
   aiReplanInterval: 0.5,
   aiStuckWindow: 1,

@@ -26,7 +26,7 @@ const COUNTDOWN_TICKS = Math.round(cfg.countdownDuration * cfg.tickRate);
 const RESULT_TICKS = Math.round(cfg.roundResultDuration * cfg.tickRate);
 
 function waves(startAiCount: number, seed = 5): MatchState {
-  return createMatch({ mode: 'waves', startAiCount }, PROVING_GROUND, seed);
+  return createMatch({ mode: 'waves', startAiCount, mortars: false }, PROVING_GROUND, seed);
 }
 
 /** Clears the current wave through the real rules and steps on until the next wave is in play. */
@@ -177,12 +177,12 @@ describe('waves: options', () => {
 
   test('Invalid starting count is rejected', () => {
     for (const startAiCount of [0, 5, 1.5, NaN]) {
-      const options = { mode: 'waves' as const, startAiCount };
+      const options = { mode: 'waves' as const, startAiCount, mortars: false };
       expect(validateOptions(options)).toMatch(/Starting number of AI tanks/);
       expect(() => createMatch(options, PROVING_GROUND, 1)).toThrow(/Starting number of AI tanks/);
     }
     for (const startAiCount of [1, 2, 3, 4])
-      expect(validateOptions({ mode: 'waves', startAiCount })).toBeNull();
+      expect(validateOptions({ mode: 'waves', startAiCount, mortars: false })).toBeNull();
   });
 
   test('an unknown mode is rejected', () => {

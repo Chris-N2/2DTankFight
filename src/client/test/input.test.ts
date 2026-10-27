@@ -18,12 +18,27 @@ describe('keyboard controls', () => {
     expect(inputFromKeys(keys('Space')).fire).toBe(true);
   });
 
+  test('Either Shift fires the mortar', () => {
+    expect(inputFromKeys(keys('ShiftLeft')).mortar).toBe(true);
+    expect(inputFromKeys(keys('ShiftRight')).mortar).toBe(true);
+    expect(inputFromKeys(keys('Space')).mortar).toBe(false);
+    const kb = new KeyboardState();
+    kb.active = true;
+    const shift = event('ShiftRight');
+    kb.onKeyDown(shift);
+    expect(shift.preventDefault).toHaveBeenCalled();
+    expect(kb.sample().mortar).toBe(true);
+    kb.onKeyUp(event('ShiftRight'));
+    expect(kb.sample().mortar).toBe(false);
+  });
+
   test('no keys means idle, and opposing keys cancel out', () => {
-    expect(inputFromKeys(keys())).toEqual({ throttle: 0, turn: 0, fire: false });
+    expect(inputFromKeys(keys())).toEqual({ throttle: 0, turn: 0, fire: false, mortar: false });
     expect(inputFromKeys(keys('KeyW', 'ArrowDown', 'KeyA', 'ArrowRight'))).toEqual({
       throttle: 0,
       turn: 0,
       fire: false,
+      mortar: false,
     });
   });
 
@@ -53,7 +68,7 @@ describe('keyboard controls', () => {
     const kb = new KeyboardState();
     kb.onKeyDown(event('KeyW'));
     kb.onKeyDown(event('Space'));
-    expect(kb.sample()).toEqual({ throttle: 1, turn: 0, fire: true });
+    expect(kb.sample()).toEqual({ throttle: 1, turn: 0, fire: true, mortar: false });
     kb.onKeyUp(event('Space'));
     expect(kb.sample().fire).toBe(false);
   });
@@ -63,37 +78,85 @@ describe('keyboard controls', () => {
     kb.onKeyDown(event('KeyW'));
     kb.onKeyDown(event('ArrowLeft'));
     kb.clear();
-    expect(kb.sample()).toEqual({ throttle: 0, turn: 0, fire: false });
+    expect(kb.sample()).toEqual({ throttle: 0, turn: 0, fire: false, mortar: false });
   });
 });
 
 describe('combining devices', () => {
   test('Keyboard and gamepad together', () => {
     const keyboard = inputFromKeys(keys('KeyW'));
-    const gamepad = { throttle: 0 as const, turn: 0.4, fire: false };
-    expect(combineInputs(keyboard, gamepad)).toEqual({ throttle: 1, turn: 0.4, fire: false });
+    const gamepad = { throttle: 0 as const, turn: 0.4, fire: false, mortar: false };
+    expect(combineInputs(keyboard, gamepad)).toEqual({ throttle: 1, turn: 0.4, fire: false, mortar: false });
   });
 
   test('the stronger input wins, equal opposites cancel, and fire from either device counts', () => {
     expect(
-      combineInputs({ throttle: 0, turn: -0.3, fire: false }, { throttle: 0, turn: 1, fire: true }),
+      combineInputs(
+        { throttle: 0, turn: -0.3, fire: false, mortar: false },
+        { throttle: 0, turn: 1, fire: true, mortar: false },
+      ),
     ).toEqual({
       throttle: 0,
       turn: 1,
       fire: true,
+      mortar: false,
     });
     expect(
-      combineInputs({ throttle: 1, turn: -1, fire: false }, { throttle: -1, turn: 1, fire: false }),
+      combineInputs(
+        { throttle: 1, turn: -1, fire: false, mortar: false },
+        { throttle: -1, turn: 1, fire: false, mortar: false },
+      ),
     ).toEqual({
       throttle: 0,
       turn: 0,
       fire: false,
+      mortar: false,
     });
-    expect(combineInputs()).toEqual({ throttle: 0, turn: 0, fire: false });
+    expect(combineInputs()).toEqual({ throttle: 0, turn: 0, fire: false, mortar: false });
+  });
+});
+
+describe('combining devices: mortar', () => {
+  test('mortar from either device counts', () => {
+    const shift = inputFromKeys(keys('ShiftLeft'));
+    const idlePad = inputFromGamepad({ axes: [0, 0], buttons: [] });
+    expect(combineInputs(shift, idlePad).mortar).toBe(true);
+    expect(combineInputs(idlePad, { throttle: 0, turn: 0, fire: false, mortar: true }).mortar).toBe(true);
+    expect(combineInputs(idlePad, inputFromKeys(keys())).mortar).toBe(false);
   });
 });
 
 describe('fire latch', () => {
+  test('A held mortar button waits for a fresh press', () => {
+    const lbHeld = inputFromGamepad({
+      axes: [0, 0],
+      buttons: Array.from({ length: 17 }, (_, i) => ({
+        pressed: i === BUTTON.LB,
+        value: i === BUTTON.LB ? 1 : 0,
+      })),
+    });
+    const released = { throttle: 0 as const, turn: 0, fire: false, mortar: false };
+    for (const held of [lbHeld, inputFromKeys(keys('ShiftLeft'))]) {
+      const latch = new FireLatch();
+      latch.arm();
+      expect(latch.apply(held).mortar).toBe(false);
+      expect(latch.apply(held).mortar).toBe(false);
+      expect(latch.apply(released).mortar).toBe(false);
+      expect(latch.apply(held).mortar).toBe(true);
+    }
+  });
+
+  test('fire and mortar are latched independently', () => {
+    const latch = new FireLatch();
+    latch.arm();
+    // Fire held from the menu, mortar not: the mortar works straight away, fire waits for a release.
+    expect(latch.apply({ throttle: 0, turn: 0, fire: true, mortar: false })).toMatchObject({ fire: false });
+    expect(latch.apply({ throttle: 0, turn: 0, fire: true, mortar: true })).toMatchObject({
+      fire: false,
+      mortar: true,
+    });
+  });
+
   test('Starting a game does not fire', () => {
     const aHeld = inputFromGamepad({
       axes: [0, 0],
@@ -102,7 +165,7 @@ describe('fire latch', () => {
         value: i === BUTTON.A ? 1 : 0,
       })),
     });
-    const released = { throttle: 0 as const, turn: 0, fire: false };
+    const released = { throttle: 0 as const, turn: 0, fire: false, mortar: false };
     for (const held of [aHeld, inputFromKeys(keys('Space'))]) {
       const latch = new FireLatch();
       latch.arm();
@@ -115,10 +178,10 @@ describe('fire latch', () => {
 
   test('an unarmed latch passes input straight through, other fields included', () => {
     const latch = new FireLatch();
-    const input = { throttle: 1 as const, turn: -0.5, fire: true };
+    const input = { throttle: 1 as const, turn: -0.5, fire: true, mortar: false };
     expect(latch.apply(input)).toEqual(input);
     latch.arm();
-    expect(latch.apply(input)).toEqual({ ...input, fire: false });
+    expect(latch.apply(input)).toEqual({ ...input, fire: false, mortar: false });
   });
 });
 

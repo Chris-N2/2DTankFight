@@ -90,9 +90,13 @@ export const waves: ModeRules = {
     const cfg = state.config;
     const setup = waveSetup(cfg, wavesOf(state).startAiCount, state.round);
     const humans = state.tanks.filter((t) => t.kind === 'human');
-    for (const human of humans) setDefaultCombat(cfg, human);
+    for (const human of humans) {
+      setDefaultCombat(cfg, human);
+      human.mortars = state.options.mortars ? 1 : 0;
+    }
 
-    // AI tanks are rebuilt every wave. A tank keeps its id and colour from wave to wave.
+    // AI tanks are rebuilt every wave. A tank keeps its id and colour from wave to wave. They never get a
+    // mortar: in Waves it's the outnumbered human's tool.
     const ai = [];
     for (let i = 1; i <= setup.aiCount; i++) {
       const tank = createTank(cfg, `ai${i}`, 'ai', i);

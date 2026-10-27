@@ -5,7 +5,7 @@ import { snapshot, tankPose } from '../src/renderer';
 import { bannerFor, gameOverText, hpPips, hudScore, roundLine, wavesGameOverText } from '../src/screens';
 
 function wavesMatch(startAiCount = 1): MatchState {
-  return createMatch({ mode: 'waves', startAiCount }, PROVING_GROUND, 3);
+  return createMatch({ mode: 'waves', startAiCount, mortars: false }, PROVING_GROUND, 3);
 }
 
 /** Clears the current wave through the real rules and returns the events up to the next wave's countdown. */
@@ -48,7 +48,11 @@ describe('waves: heads-up display', () => {
   });
 
   test('Last One Standing keeps its round and score', () => {
-    const state = createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds: 5 }, PROVING_GROUND, 1);
+    const state = createMatch(
+      { mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false },
+      PROVING_GROUND,
+      1,
+    );
     expect(roundLine(state)).toBe('Round 1 / 5');
     expect(hudScore(state)).toBe('You 0 – 0 AI');
   });
@@ -145,27 +149,42 @@ describe('waves: result screen', () => {
   test('Best on this device', () => {
     const storage = new FakeStorage();
     // A first game that clears nothing isn't much of a record.
-    expect(recordBest(storage, 1, 0)).toEqual({ best: 0, isNew: false });
-    expect(recordBest(storage, 1, 3)).toEqual({ best: 3, isNew: true });
-    expect(wavesGameOverText(4, 3, recordBest(storage, 1, 2), false).best).toBe('Best: 3');
-    expect(recordBest(storage, 1, 3)).toEqual({ best: 3, isNew: false }); // equalling it isn't beating it
-    expect(recordBest(storage, 1, 5)).toEqual({ best: 5, isNew: true });
-    expect(storage.data.get(bestKey(1))).toBe('5');
+    expect(recordBest(storage, 1, false, 0)).toEqual({ best: 0, isNew: false });
+    expect(recordBest(storage, 1, false, 3)).toEqual({ best: 3, isNew: true });
+    expect(wavesGameOverText(4, 3, recordBest(storage, 1, false, 2), false).best).toBe('Best: 3');
+    expect(recordBest(storage, 1, false, 3)).toEqual({ best: 3, isNew: false }); // equalling it isn't beating it
+    expect(recordBest(storage, 1, false, 5)).toEqual({ best: 5, isNew: true });
+    expect(storage.data.get(bestKey(1, false))).toBe('5');
     // Starting with more AI tanks is a different game, with its own best.
-    expect(recordBest(storage, 4, 2)).toEqual({ best: 2, isNew: true });
-    expect(storage.data.get(bestKey(1))).toBe('5');
+    expect(recordBest(storage, 4, false, 2)).toEqual({ best: 2, isNew: true });
+    expect(storage.data.get(bestKey(1, false))).toBe('5');
+  });
+
+  test('Bests are kept per mortars setting', () => {
+    const storage = new FakeStorage();
+    recordBest(storage, 1, false, 6);
+    expect(recordBest(storage, 1, true, 3)).toEqual({ best: 3, isNew: true });
+    expect(recordBest(storage, 1, false, 0)).toEqual({ best: 6, isNew: false });
+    expect(bestKey(1, true)).not.toBe(bestKey(1, false));
+  });
+
+  test('Earlier bests are classic bests', () => {
+    const storage = new FakeStorage();
+    storage.setItem('tank-command.waves-best.2', '7'); // as stored before mortars existed
+    expect(recordBest(storage, 2, false, 1)).toEqual({ best: 7, isNew: false });
+    expect(recordBest(storage, 2, true, 1)).toEqual({ best: 1, isNew: true });
   });
 
   test('a corrupt stored best is ignored', () => {
     const storage = new FakeStorage();
-    storage.setItem(bestKey(2), 'lots');
-    expect(recordBest(storage, 2, 1)).toEqual({ best: 1, isNew: true });
+    storage.setItem(bestKey(2, false), 'lots');
+    expect(recordBest(storage, 2, false, 1)).toEqual({ best: 1, isNew: true });
   });
 
   test('Best survives storage being unavailable', () => {
-    expect(recordBest(null, 1, 3)).toBeNull();
-    expect(recordBest(blocked, 1, 3)).toBeNull();
-    const text = wavesGameOverText(4, 3, recordBest(blocked, 1, 3), false);
+    expect(recordBest(null, 1, false, 3)).toBeNull();
+    expect(recordBest(blocked, 1, false, 3)).toBeNull();
+    const text = wavesGameOverText(4, 3, recordBest(blocked, 1, false, 3), false);
     expect(text.score).toBe('3 waves cleared');
     expect(text.best).toBe('');
   });

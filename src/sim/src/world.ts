@@ -8,6 +8,7 @@ import {
   sweepRect,
   wrapAngle,
 } from './geometry';
+import { chargeMortars, flyMortars } from './mortar';
 import {
   IDLE_INPUT,
   type InputMap,
@@ -22,7 +23,7 @@ const BOUNCE_NUDGE = 0.01;
 
 /**
  * Advances the physical world by one tick: tank movement and collisions, shell flight, bounces,
- * hits, new shots and eliminations. Game rules (rounds, scoring) are handled by the match layer.
+ * hits, mortar landings, new shots, mortar charging and launches, and eliminations. Game rules (rounds, scoring) are handled by the match layer.
  */
 export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[]): void {
   const lastHitBy: Record<string, string> = {};
@@ -47,6 +48,9 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
   }
   state.shells = survivors;
 
+  // Mortars land before any new one is launched, so a fresh mortar always spends at least a tick in the air.
+  flyMortars(state, events);
+
   // Decide who fires before any new shell can do damage, so point-blank shots in the same tick are
   // simultaneous: being hit by one doesn't stop a tank getting its own shot away.
   const firing: TankState[] = [];
@@ -58,12 +62,14 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
     if (pressed && tank.cooldown === 0 && tank.hp > 0) firing.push(tank);
   }
   for (const tank of firing) fire(state, tank, events, lastHitBy);
+  chargeMortars(state, inputs, events);
 
   // All hits in this tick are resolved together, so several tanks can be eliminated at once.
   for (const tank of state.tanks) {
     if (tank.alive && tank.hp <= 0) {
       tank.alive = false;
       tank.hp = 0;
+      tank.mortarCharge = -1;
       events.push({
         type: 'eliminated',
         tankId: tank.id,
@@ -80,7 +86,13 @@ function moveTank(state: MatchState, tank: TankState, input: TankInputLike): voi
   const dt = tickDuration(cfg);
   tank.heading = wrapAngle(tank.heading + cleanTurn(input.turn) * cfg.tankTurnRate * dt);
 
-  const speed = input.throttle > 0 ? cfg.tankSpeed : input.throttle < 0 ? -cfg.tankReverseSpeed : 0;
+  // A mortar splash bogs the tank down: slower driving, but turning is unaffected.
+  const slow = tank.slowTicks > 0 ? cfg.mortarSlowFactor : 1;
+  if (tank.slowTicks > 0) tank.slowTicks--;
+  if (cfg.mortarPlantWhileCharging && tank.mortarCharge >= 0) return;
+
+  const base = input.throttle > 0 ? cfg.tankSpeed : input.throttle < 0 ? -cfg.tankReverseSpeed : 0;
+  const speed = base * slow;
   if (speed === 0) return;
   const dx = Math.cos(tank.heading) * speed * dt;
   const dy = Math.sin(tank.heading) * speed * dt;

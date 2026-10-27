@@ -1,6 +1,8 @@
 import {
   HUMAN_ID,
+  type GameMode,
   type LastOneStandingResult,
+  type MatchOptions,
   type MatchState,
   type RoundOutcome,
   type Scores,
@@ -9,6 +11,30 @@ import {
 import type { BestResult } from './best';
 
 // Pure text decisions for the overlays, kept apart from the DOM so they're easy to test.
+
+/** Everything the setup screen remembers, for both modes, so switching mode back and forth loses nothing. */
+export interface SetupChoices {
+  mode: GameMode;
+  aiCount: number;
+  rounds: number;
+  startAiCount: number;
+  /** Off is classic play. */
+  mortars: boolean;
+}
+
+export const DEFAULT_CHOICES: Readonly<SetupChoices> = {
+  mode: 'lastOneStanding',
+  aiCount: 3,
+  rounds: 5,
+  startAiCount: 1,
+  mortars: true,
+};
+
+/** The match options for the setup screen's choices: the selected mode's options, plus the mortars setting. */
+export function matchOptionsFor(choices: SetupChoices): MatchOptions {
+  const { mode, aiCount, rounds, startAiCount, mortars } = choices;
+  return mode === 'waves' ? { mode, startAiCount, mortars } : { mode, aiCount, rounds, mortars };
+}
 
 export interface BannerText {
   title: string;
@@ -117,6 +143,14 @@ export function hpPips(state: MatchState): string {
   const hp = you?.alive ? Math.max(0, you.hp) : 0;
   const max = you?.maxHp ?? state.config.tankMaxHp;
   return '■'.repeat(hp) + '□'.repeat(Math.max(0, max - hp));
+}
+
+/** The HUD's mortar cell: ready, aiming or used; null when mortars are off, so the cell is hidden. */
+export function mortarHud(state: MatchState): string | null {
+  if (!state.options.mortars) return null;
+  const you = state.tanks.find((t) => t.id === HUMAN_ID);
+  if (you?.alive && you.mortarCharge >= 0) return 'Aiming…';
+  return you?.alive && you.mortars > 0 ? 'Ready' : 'Used';
 }
 
 /** The HUD's progress cell: the round in Last One Standing, the wave in Waves. */

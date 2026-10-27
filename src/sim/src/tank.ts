@@ -17,6 +17,10 @@ export function createTank(config: SimConfig, id: string, kind: TankKind, colorI
     alive: true,
     cooldown: 0,
     fireHeld: false,
+    mortars: 0,
+    mortarCharge: -1,
+    mortarHeld: false,
+    slowTicks: 0,
   };
   setDefaultCombat(config, tank);
   tank.hp = tank.maxHp;

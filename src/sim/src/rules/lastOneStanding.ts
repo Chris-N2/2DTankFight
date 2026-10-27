@@ -5,12 +5,16 @@ import type { ModeRules } from '.';
 /** Every tank for itself; the human against the AI tanks as one side, over a number of rounds. */
 export const lastOneStanding: ModeRules = {
   setUp(state, events) {
-    const { aiCount } = optionsOf(state);
+    const { aiCount, mortars } = optionsOf(state);
     // The same tanks play every round; they're added once, after the human.
     if (state.tanks.length === 1) {
       for (let i = 1; i <= aiCount; i++) state.tanks.push(createTank(state.config, `ai${i}`, 'ai', i));
     }
-    for (const tank of state.tanks) setDefaultCombat(state.config, tank);
+    for (const tank of state.tanks) {
+      setDefaultCombat(state.config, tank);
+      // Every tank for itself, so everyone gets a mortar, loaded afresh each round.
+      tank.mortars = mortars ? 1 : 0;
+    }
     events.push({ type: 'roundStarted', round: state.round });
   },
 
@@ -62,7 +66,7 @@ function scored(scores: Scores, outcome: RoundOutcome): Scores {
   };
 }
 
-function optionsOf(state: MatchState): { aiCount: number; rounds: number } {
+function optionsOf(state: MatchState): { aiCount: number; rounds: number; mortars: boolean } {
   if (state.options.mode !== 'lastOneStanding') throw new Error('Not a Last One Standing match.');
   return state.options;
 }

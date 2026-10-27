@@ -44,7 +44,7 @@ player to join (multiplayer).
   2. AI shots do more damage, until one AI hit destroys a human.
   3. After that, AI projectiles get faster, capped at roughly **2× their initial speed**.
   (Exact numbers are a balancing exercise — expect to tune them.)
-- **Mortars refill** at the start of each wave.
+- **Mortars refill** at the start of each wave (humans only; the AI never has them in Waves).
 - **Respawning:** if one human is destroyed and the other survives the wave, the destroyed player respawns at the
   start of the next wave (nobody should be stuck watching for long).
 - **Game over** when no human players remain alive.
@@ -57,7 +57,7 @@ player to join (multiplayer).
 - AI opponents do **not** become more difficult between rounds.
 - A round ends when only one tank is left, or immediately when all human players have been eliminated.
 - If a human is the last tank remaining, they score a point.
-- If both last humans are destroyed simultaneously (e.g. one mortar blast, mutual hits), they **share the point**.
+- If both last humans are destroyed simultaneously (e.g. mutual hits, or bounced shells), they **share the point**.
   (Sudden death may be worth trying later for extra drama.)
 - **Single-player:** the AI tanks count collectively as one opponent for scoring. The game ends when either side
   wins a majority of the rounds (e.g. 3 out of 5), at which point the human has won or lost.
@@ -84,9 +84,15 @@ player to join (multiplayer).
 
 - **Turret:** infinite ammunition and fires straight ahead. A shell can bounce **once** off an obstacle. A bounced
   shell can hit the tank that fired it, as tradition demands.
-- **Mortars:** 3 per round (Last One Standing) or per wave (Waves). The player **holds the fire button to charge** —
-  a longer hold gives a longer range. The shell arcs over obstacles and explodes on contact with the ground or a tank.
-  The **splash damages everyone in range, including the firer**.
+- **Mortars:** **1** per round (Last One Standing) or per wave (Waves). The player **holds the mortar button to
+  charge** — a longer hold gives a longer range — and releases to lob it straight ahead. The shell arcs over obstacles
+  and lands where it was aimed. The splash **does no damage: it bogs down (slows) everyone in range, including the
+  firer**, setting up a turret kill rather than replacing one.
+  - In Last One Standing every tank has one, AI included. In **Waves only humans have them** — the outnumbered
+    player's tool, which keeps hide-and-hunt viable.
+  - Mortars are a host option, **on by default**; off is "classic" play.
+  - Why not damage? The original plan (3 damaging mortars) would have made cover worthless and rounds swingy; see the
+    `mortars` change for the reasoning.
 - Friendly fire (two-player Waves) is a host option; it does not apply in Last One Standing, where everyone is fair game.
 
 ## Boards

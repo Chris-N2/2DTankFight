@@ -267,7 +267,7 @@ describe('ai: beatable imperfection', () => {
   test('Reproducible behaviour', () => {
     const run = (): string[] => {
       const state = createMatch(
-        { mode: 'lastOneStanding', aiCount: 4, rounds: 7 },
+        { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
         makeBoard([{ x: 350, y: 250, w: 100, h: 100 }]),
         99,
       );
@@ -310,7 +310,7 @@ describe('waves: AI tanks are allies', () => {
 
   test('switching co-operation off brings back infighting', () => {
     const config = { ...DEFAULT_CONFIG, wavesAiCooperate: false };
-    const state = createMatch({ mode: 'waves', startAiCount: 2 }, sealedBoard(), 1, config);
+    const state = createMatch({ mode: 'waves', startAiCount: 2, mortars: false }, sealedBoard(), 1, config);
     state.phase = 'playing';
     sealedHuman(state);
     const events = [];

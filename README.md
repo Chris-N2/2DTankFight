@@ -11,8 +11,11 @@ Currently playable, single-player:
   after that they get tougher armour, then harder hits (until one hit is lethal), then faster shells. The AI tanks
   work together and hold fire rather than shoot each other, though a stray bounce still counts. Your armour is
   restored every wave, and your best run is remembered on this device.
+- **Mortars** (on by default, or switch them off for classic play): one per round, or per wave. Hold to aim, release
+  to lob it over the walls. It does no damage, but it bogs down every tank it splashes, yours included. In Waves
+  only you have one.
 
-Two-player co-op, mortars, tank designs, more boards and online play are on the way. See
+Two-player co-op, tank designs, more boards and online play are on the way. See
 [CLAUDE.md](CLAUDE.md) for the full vision.
 
 ## Running it
@@ -33,6 +36,7 @@ Best played with a gamepad. The keyboard and a gamepad both work at any time.
 | Drive forward / reverse | <kbd>W</kbd> / <kbd>S</kbd> or <kbd>↑</kbd> / <kbd>↓</kbd> | Left stick up / down, or d-pad |
 | Turn left / right | <kbd>A</kbd> / <kbd>D</kbd> or <kbd>←</kbd> / <kbd>→</kbd> | Left stick (analogue: push further to turn faster), or d-pad |
 | Fire | <kbd>Space</kbd> (one shell per press) | <kbd>A</kbd> or <kbd>RT</kbd> (one shell per press) |
+| Mortar | Hold either <kbd>Shift</kbd> to aim, release to lob | Hold <kbd>LB</kbd> or <kbd>RB</kbd> to aim, release to lob |
 | Pause / resume | <kbd>Esc</kbd> (switching tabs pauses too) | <kbd>Start</kbd> (unplugging the pad pauses too) |
 | Menus | Arrows or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move (<kbd>Tab</kbd> works too), <kbd>Enter</kbd> or <kbd>Space</kbd> to select | D-pad or stick to move, <kbd>A</kbd> to select, <kbd>B</kbd> to go back |
 

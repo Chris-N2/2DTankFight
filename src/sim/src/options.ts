@@ -6,6 +6,8 @@ export const ROUND_CHOICES: readonly number[] = [1, 3, 5, 7];
 
 /** Returns a reason the options are invalid, or null if they're fine. */
 export function validateOptions(options: MatchOptions): string | null {
+  // Options may one day arrive from an untrusted network client, so the type alone isn't trusted.
+  if (typeof (options.mortars as unknown) !== 'boolean') return 'Mortars must be either on or off.';
   switch (options.mode) {
     case 'lastOneStanding':
       if (!isAiCount(options.aiCount)) {

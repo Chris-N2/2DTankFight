@@ -43,7 +43,7 @@ describe('gamepad controls', () => {
       [-0.15, 0],
       [0, 0.19],
     ] as const) {
-      expect(inputFromGamepad(pad({ x, y }))).toEqual({ throttle: 0, turn: 0, fire: false });
+      expect(inputFromGamepad(pad({ x, y }))).toEqual({ throttle: 0, turn: 0, fire: false, mortar: false });
     }
   });
 
@@ -67,30 +67,41 @@ describe('gamepad controls', () => {
       throttle: 1,
       turn: -1,
       fire: false,
+      mortar: false,
     });
     expect(inputFromGamepad(pad({ buttons: { [BUTTON.DOWN]: true, [BUTTON.RIGHT]: true } }))).toEqual({
       throttle: -1,
       turn: 1,
       fire: false,
+      mortar: false,
     });
     // The stronger of stick and d-pad wins.
     expect(inputFromGamepad(pad({ x: 0.5, buttons: { [BUTTON.RIGHT]: true } })).turn).toBe(1);
   });
 
-  test('LB and RB do nothing yet', () => {
-    expect(inputFromGamepad(pad({ buttons: { [BUTTON.LB]: true, [BUTTON.RB]: true } }))).toEqual({
+  test('Mortar with LB or RB', () => {
+    expect(inputFromGamepad(pad({ buttons: { [BUTTON.LB]: true } }))).toEqual({
       throttle: 0,
       turn: 0,
       fire: false,
+      mortar: true,
     });
+    expect(inputFromGamepad(pad({ buttons: { [BUTTON.RB]: true } })).mortar).toBe(true);
+    expect(inputFromGamepad(pad()).mortar).toBe(false);
   });
 
   test('missing or broken axes and buttons are treated as idle', () => {
-    expect(inputFromGamepad({ axes: [], buttons: [] })).toEqual({ throttle: 0, turn: 0, fire: false });
+    expect(inputFromGamepad({ axes: [], buttons: [] })).toEqual({
+      throttle: 0,
+      turn: 0,
+      fire: false,
+      mortar: false,
+    });
     expect(inputFromGamepad({ axes: [NaN, NaN], buttons: [] })).toEqual({
       throttle: 0,
       turn: 0,
       fire: false,
+      mortar: false,
     });
   });
 

@@ -12,6 +12,8 @@ export const GAME_KEYS: ReadonlySet<string> = new Set([
   'KeyS',
   'KeyD',
   'Space',
+  'ShiftLeft',
+  'ShiftRight',
 ]);
 
 /** Maps the set of currently pressed keys to a tank input. Opposing keys cancel out. */
@@ -24,6 +26,8 @@ export function inputFromKeys(pressed: ReadonlySet<string>): TankInput {
     throttle: forward === back ? 0 : forward ? 1 : -1,
     turn: left === right ? 0 : left ? -1 : 1,
     fire: pressed.has('Space'),
+    // Either Shift, so it's under a finger whether you drive with W/A/S/D or the arrows.
+    mortar: pressed.has('ShiftLeft') || pressed.has('ShiftRight'),
   };
 }
 
@@ -89,34 +93,41 @@ function stronger<T extends number>(a: T, b: T): T | 0 {
 
 /**
  * Combines inputs from several devices (keyboard and any gamepads) into one: the stronger turn and
- * throttle win, and fire is held if any device holds it.
+ * throttle win, and fire and mortar are each held if any device holds them.
  */
 export function combineInputs(...inputs: TankInput[]): TankInput {
-  let combined: TankInput = { throttle: 0, turn: 0, fire: false };
+  let combined: TankInput = { throttle: 0, turn: 0, fire: false, mortar: false };
   for (const input of inputs) {
     combined = {
       throttle: stronger(combined.throttle, input.throttle),
       turn: stronger(combined.turn, input.turn),
       fire: combined.fire || input.fire,
+      mortar: combined.mortar === true || input.mortar === true,
     };
   }
   return combined;
 }
 
 /**
- * Stops a fire button that's still held from the menus firing the moment play begins. Arm it when a
- * game starts; fire then reads as released until the player actually lets go.
+ * Stops a fire or mortar button that's still held from the menus acting the moment play begins. Arm it when a
+ * game starts; each button then reads as released until the player actually lets go of it.
  */
 export class FireLatch {
-  private armed = false;
+  private fireArmed = false;
+  private mortarArmed = false;
 
   arm(): void {
-    this.armed = true;
+    this.fireArmed = true;
+    this.mortarArmed = true;
   }
 
   apply(input: TankInput): TankInput {
-    if (!this.armed) return input;
-    if (!input.fire) this.armed = false;
-    return { ...input, fire: false };
+    if (!input.fire) this.fireArmed = false;
+    if (!input.mortar) this.mortarArmed = false;
+    return {
+      ...input,
+      fire: input.fire && !this.fireArmed,
+      mortar: input.mortar === true && !this.mortarArmed,
+    };
   }
 }

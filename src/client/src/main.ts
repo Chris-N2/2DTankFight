@@ -8,7 +8,6 @@ import {
   ROUND_CHOICES,
   step,
   type GameMode,
-  type MatchOptions,
   type MatchState,
   type SimEvent,
   type WaveChange,
@@ -19,17 +18,18 @@ import { inputFromGamepad, isActive, MenuInput, type GamepadSnapshot, type MenuA
 import { combineInputs, FireLatch, GAME_KEYS, KeyboardState, menuActionForKey } from './input';
 import { FixedStepLoop } from './loop';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
-import { bannerFor, gameOverText, hpPips, hudScore, roundLine, wavesGameOverText } from './screens';
-
-/** Everything the setup screen remembers, for both modes, so switching mode back and forth loses nothing. */
-interface SetupChoices {
-  mode: GameMode;
-  aiCount: number;
-  rounds: number;
-  startAiCount: number;
-}
-
-const DEFAULT_CHOICES: SetupChoices = { mode: 'lastOneStanding', aiCount: 3, rounds: 5, startAiCount: 1 };
+import {
+  bannerFor,
+  DEFAULT_CHOICES,
+  gameOverText,
+  hpPips,
+  hudScore,
+  matchOptionsFor,
+  mortarHud,
+  roundLine,
+  wavesGameOverText,
+  type SetupChoices,
+} from './screens';
 
 const MODES: readonly GameMode[] = ['lastOneStanding', 'waves'];
 const MODE_NAMES: Record<GameMode, string> = { lastOneStanding: 'Last One Standing', waves: 'Waves' };
@@ -105,6 +105,13 @@ class Game {
       () => this.choices.startAiCount,
       (v) => (this.choices.startAiCount = v),
     );
+    this.buildChoices(
+      'opt-mortars',
+      ['on', 'off'] as const,
+      () => (this.choices.mortars ? 'on' : 'off'),
+      (v) => (this.choices.mortars = v === 'on'),
+      (v) => (v === 'on' ? 'On' : 'Off (classic)'),
+    );
     this.showModeOptions();
     el('start').addEventListener('click', () => this.start());
     el('again').addEventListener('click', () => this.start());
@@ -141,7 +148,7 @@ class Game {
   private start(): void {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0x100000000)) >>> 0;
     // "Play again" comes through here too, so it keeps the mode and options.
-    this.match = createMatch(this.matchOptions(), PROVING_GROUND, seed);
+    this.match = createMatch(matchOptionsFor(this.choices), PROVING_GROUND, seed);
     this.prev = null;
     this.selfInflicted = false;
     this.waveChanges = [];
@@ -180,7 +187,7 @@ class Game {
 
   private onEvent(match: MatchState, event: SimEvent): void {
     const now = performance.now();
-    this.effects.add(event, now, (id) => colorOf(match, id));
+    this.effects.add(event, now, (id) => colorOf(match, id), match.config.mortarSplashRadius);
     switch (event.type) {
       case 'roundStarted':
         this.selfInflicted = false;
@@ -203,7 +210,12 @@ class Game {
             ? wavesGameOverText(
                 match.round,
                 event.wavesCleared,
-                recordBest(browserStorage(), match.waves?.startAiCount ?? 0, event.wavesCleared),
+                recordBest(
+                  browserStorage(),
+                  match.waves?.startAiCount ?? 0,
+                  match.options.mortars,
+                  event.wavesCleared,
+                ),
                 this.selfInflicted,
               )
             : gameOverText(event.result, event.scores);
@@ -258,6 +270,9 @@ class Game {
     this.setText('hud-hp', hpPips(match));
     this.setText('hud-round', roundLine(match));
     this.setText('hud-score', hudScore(match));
+    const mortar = mortarHud(match);
+    show('hud-mortar-cell', mortar !== null);
+    this.setText('hud-mortar', mortar ?? '');
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -375,11 +390,6 @@ class Game {
     if (this.hudText.get(id) === text) return;
     this.hudText.set(id, text);
     el(id).textContent = text;
-  }
-
-  private matchOptions(): MatchOptions {
-    const { mode, aiCount, rounds, startAiCount } = this.choices;
-    return mode === 'waves' ? { mode, startAiCount } : { mode, aiCount, rounds };
   }
 
   /** Shows only the selected mode's options. */
