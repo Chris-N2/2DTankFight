@@ -4,5 +4,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["src", "test"]
+  // The game itself: browser only, no Node APIs. The tests have their own config (test/tsconfig.json).
+  "include": ["src"]
 }

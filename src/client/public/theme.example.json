@@ -1,0 +1,13 @@
+{
+  "backdrop": "#0d100b",
+  "floor": "#26301f",
+  "grid": "#2d3925",
+  "wall": "#c9a66b",
+  "wallEdge": "#8a6d3f",
+  "border": "#8a6d3f",
+  "panel": "rgba(20, 26, 16, 0.92)",
+  "ink": "#f2ecd8",
+  "muted": "#a9a58f",
+  "accent": "#7be36f",
+  "font": "ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace"
+}

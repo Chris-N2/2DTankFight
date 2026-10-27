@@ -20,7 +20,8 @@ or agentic AI.)
 ## Core Loop
 
 A simple arcade game: players manoeuvre around a top-down arena with obstacles and shoot at opponents.
-Each player chooses a tank design (cosmetic only — see *Tanks*) so they can tell which tank is theirs.
+Every tank looks the same apart from its colour, and **you are always the green tank** on your own screen
+(see *Tanks*), so there is no tank selection.
 
 There are two game modes, each playable single-player or with two humans:
 
@@ -76,8 +77,18 @@ player to join (multiplayer).
 
 ## Tanks
 
-- Tank designs are **cosmetic only**, with identical stats, to keep things fair.
-- In multiplayer the host chooses first; their design is then unavailable to the joining player.
+- All tanks share one simple design and identical stats, to keep things fair. The simple procedurally drawn tanks
+  are a deliberate homage to the original.
+- **Perspective colours instead of tank selection:**
+  - **you are always green** on your own screen, with the pulsing "YOU" ring and label;
+  - the other human is always **blue**;
+  - AI tanks have fixed colours that are the same on every player's screen.
+
+  So "the red one" means the same tank to both players, and nobody has to pick a tank. The rule is built with
+  multiplayer. Open question for that change: reserving blue for the other human means single-player with 4 AI needs
+  a fifth AI colour, or blue allowed for AI when there's no second human.
+- The arena and menus can be **themed** by whoever hosts the game (`theme.json` or `--tank-*` CSS variables) to
+  match their site. Gameplay colours are never themeable.
 - Tanks have **hit points**. Exact values are set during balancing.
 
 ## Combat
@@ -124,7 +135,7 @@ Suggested change sequence:
 1. Core simulation + single-player Last One Standing on a fixed board (movement, turret, bounce, hits, basic AI)
 2. Waves mode (hit points, escalation, wave progression, respawn)
 3. Mortars
-4. Tank selection & cosmetics
+4. Arena theme & hosting (replaces tank selection: see *Tanks*)
 5. Board variety (more hand-made boards, then the optional generator)
 6. Multiplayer (room codes, authoritative server, prediction, disconnect handling)
 

@@ -6,22 +6,31 @@ import {
   type MortarState,
   type TankState,
 } from '@tank/sim';
+import { PALETTE, SHELL } from './colours';
 import type { Effects } from './effects';
+import { THEME_DEFAULTS, type Theme } from './theme';
 
-/** Tank colours by colorIndex. Index 0 is always the human. */
-export const PALETTE = ['#7be36f', '#ff6b5e', '#5eaaff', '#ffd35e', '#d78bff'];
-
-const FLOOR = '#26301f';
-const GRID = '#2d3925';
-const WALL = '#c9a66b';
-const WALL_EDGE = '#8a6d3f';
-const BORDER = '#8a6d3f';
-const SHELL = '#fff8dc';
 const OUTLINE = '#141810';
 const MORTAR = '#3b3a32';
 const SHADOW = 'rgba(0, 0, 0, 0.35)';
 const MUD = '#5a3d22';
 const MUD_LIGHT = '#7a5532';
+
+/** The arena's themeable colours. */
+export interface ArenaColours {
+  backdrop: string;
+  floor: string;
+  grid: string;
+  wall: string;
+  wallEdge: string;
+  border: string;
+}
+
+/** The arena colours a theme gives. */
+export function arenaColours(theme: Theme): ArenaColours {
+  const { backdrop, floor, grid, wall, wallEdge, border } = theme;
+  return { backdrop, floor, grid, wall, wallEdge, border };
+}
 
 /** Render-relevant positions captured before a tick, so frames can interpolate between ticks. */
 export interface Snapshot {
@@ -94,6 +103,7 @@ export class Renderer {
   private offsetX = 0;
   private offsetY = 0;
   private dpr = 1;
+  private colours: ArenaColours = arenaColours(THEME_DEFAULTS);
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -104,6 +114,11 @@ export class Renderer {
     if (!ctx) throw new Error('Canvas 2D is not supported in this browser.');
     this.ctx = ctx;
     this.resize();
+  }
+
+  /** Draws the arena in this theme's colours from the next frame on. */
+  setTheme(theme: Theme): void {
+    this.colours = arenaColours(theme);
   }
 
   /** Fits the world into the window, letterboxed, keeping its aspect ratio; crisp on high-DPI screens. */
@@ -222,7 +237,7 @@ export class Renderer {
   private beginFrame(): void {
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#0d100b';
+    ctx.fillStyle = this.colours.backdrop;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(
       this.dpr * this.scale,
@@ -237,10 +252,10 @@ export class Renderer {
   private drawArena(board: Board): void {
     const ctx = this.ctx;
     const { width, height, obstacles } = board;
-    ctx.fillStyle = FLOOR;
+    ctx.fillStyle = this.colours.floor;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = GRID;
+    ctx.strokeStyle = this.colours.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 50; x < width; x += 50) {
@@ -254,13 +269,13 @@ export class Renderer {
     ctx.stroke();
 
     for (const r of obstacles) {
-      ctx.fillStyle = WALL_EDGE;
+      ctx.fillStyle = this.colours.wallEdge;
       ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.fillStyle = WALL;
+      ctx.fillStyle = this.colours.wall;
       ctx.fillRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
     }
 
-    ctx.strokeStyle = BORDER;
+    ctx.strokeStyle = this.colours.border;
     ctx.lineWidth = 6;
     ctx.strokeRect(-3, -3, width + 6, height + 6);
   }

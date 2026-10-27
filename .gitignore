@@ -24,3 +24,6 @@ Thumbs.db
 .serena/
 .eslintcache
 .vite/
+
+# A local test theme for the dev server; never commit or ship it (see README, Theming)
+src/client/public/theme.json

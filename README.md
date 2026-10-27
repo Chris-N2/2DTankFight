@@ -15,7 +15,7 @@ Currently playable, single-player:
   to lob it over the walls. It does no damage, but it bogs down every tank it splashes, yours included. In Waves
   only you have one.
 
-Two-player co-op, tank designs, more boards and online play are on the way. See
+Two-player co-op, more boards and online play are on the way. See
 [CLAUDE.md](CLAUDE.md) for the full vision.
 
 ## Running it
@@ -44,11 +44,80 @@ Browsers only reveal a gamepad once one of its buttons has been pressed on the p
 arrive and the setup screen will confirm it's been detected. Button names are Xbox-style; on other pads, use the button
 in the same position (for example, the bottom face button for <kbd>A</kbd>).
 
-### Hosting it yourself
+## Putting it on your site
 
-`npm run build` produces a static site you can put on any web server, with one caveat: browsers only allow gamepads on
-secure pages, so serve it over **https** (localhost is fine for development). If you embed the game in an `<iframe>`,
-add `allow="gamepad"` to it.
+`npm run build` produces a static site in `src/client/dist`. Copy that folder anywhere on a web server, including a
+sub-folder of an existing site: it only uses relative paths. Browsers only allow gamepads on secure pages, so serve
+it over **https** (localhost is fine for development). If you put the game in an `<iframe>`, add
+`allow="gamepad"` to it.
+
+### Your own page or template
+
+The game builds all of its screens itself, and its file names don't change between releases. So a page of your own,
+such as an Umbraco template or a CMS page type, needs just these lines. The game takes over the whole window, as it
+does on its own page.
+
+```html
+<head>
+  <link rel="stylesheet" href="/tank-command/assets/tank-command.css?v=1" />
+  <!-- Optional: a theme file somewhere other than beside the game -->
+  <meta name="tank-command-theme" content="/css/tank-command-theme.json" />
+</head>
+<body>
+  <div id="tank-command"></div>
+  <script type="module" src="/tank-command/assets/tank-command.js?v=1"></script>
+</body>
+```
+
+Because the file names stay the same, browsers may keep an old copy after you deploy a new version. Bump the `?v=`
+number when you do.
+
+### Theming
+
+Make the arena and menus match your site. Put a **`theme.json`** beside the game's `index.html`, or wherever a
+`tank-command-theme` meta tag points. Then set any of these:
+
+(A local `theme.json` in `src/client/public/` is handy for trying a theme with `npm run dev`. It's git-ignored, but
+Vite copies it into the build, so remove it before running `npm run build`.)
+
+| Setting | What it colours | Default |
+|---|---|---|
+| `backdrop` | The page behind the arena | `#0d100b` |
+| `floor` | The arena floor | `#26301f` |
+| `grid` | The grid lines on the floor | `#2d3925` |
+| `wall` | Obstacles; also menu headings and highlights | `#c9a66b` |
+| `wallEdge` | Obstacle edges; also menu borders | `#8a6d3f` |
+| `border` | The arena's outer border | `#8a6d3f` |
+| `panel` | Menu and overlay panels | `rgba(20, 26, 16, 0.92)` |
+| `ink` | Main text | `#f2ecd8` |
+| `muted` | Secondary text | `#a9a58f` |
+| `accent` | Focus outlines, the Start button, highlights | `#7be36f` |
+| `font` | Menu, HUD and banner text | a monospace stack |
+
+```json
+{ "floor": "#1d2433", "wall": "#8fa3bf", "accent": "#ffb000", "font": "'Fira Sans', sans-serif" }
+```
+
+`theme.example.json`, which ships with the build, lists every setting at its default.
+
+If the game sits on your own page, you can set the same settings as **CSS variables** in your stylesheet instead.
+They're named `--tank-` plus the setting in kebab-case, and they override `theme.json`:
+
+```css
+:root {
+  --tank-floor: #1d2433;
+  --tank-wall-edge: #5b6b85;
+}
+```
+
+A few things to know:
+
+- **Fonts:** the game uses whatever font you name, but your page has to load it (for example with a Google Fonts
+  `<link>`).
+- **Fixed colours:** tank colours, shells, explosions and mud aren't themeable, so players can always read the game.
+  You're always the green tank with the "YOU" ring.
+- **Warnings:** a bad value or an unknown setting is skipped with a warning in the browser console, and the game still
+  starts. So does a floor colour that would make tanks or shells hard to see.
 
 ## Scripts
 
@@ -57,7 +126,7 @@ add `allow="gamepad"` to it.
 | `npm run dev` | Dev server with hot reload |
 | `npm run build` | Production build to `src/client/dist` (a static site) |
 | `npm test` | All tests (Vitest) |
-| `npm run typecheck` | TypeScript checks for both packages |
+| `npm run typecheck` | TypeScript checks for both packages and the client tests |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |
 

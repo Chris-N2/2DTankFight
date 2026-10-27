@@ -17,6 +17,7 @@ import { Effects } from './effects';
 import { inputFromGamepad, isActive, MenuInput, type GamepadSnapshot, type MenuAction } from './gamepad';
 import { combineInputs, FireLatch, GAME_KEYS, KeyboardState, menuActionForKey } from './input';
 import { FixedStepLoop } from './loop';
+import { mountStage, type StageId } from './markup';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
 import {
   bannerFor,
@@ -30,6 +31,18 @@ import {
   wavesGameOverText,
   type SetupChoices,
 } from './screens';
+import {
+  applyTheme,
+  browserColourTools,
+  contrastWarnings,
+  loadTheme,
+  readPageOverrides,
+  startTheme,
+  THEME_WAIT_MS,
+  themeUrl,
+  type Theme,
+  type ThemeResult,
+} from './theme';
 
 const MODES: readonly GameMode[] = ['lastOneStanding', 'waves'];
 const MODE_NAMES: Record<GameMode, string> = { lastOneStanding: 'Last One Standing', waves: 'Waves' };
@@ -45,7 +58,7 @@ const RESULT_KEY_GRACE_MS = 600;
 
 type InputMode = 'keyboard' | 'mouse' | 'gamepad';
 
-function el<T extends HTMLElement = HTMLElement>(id: string): T {
+function el<T extends HTMLElement = HTMLElement>(id: StageId): T {
   const found = document.getElementById(id);
   if (!found) throw new Error(`Missing element #${id}`);
   return found as T;
@@ -76,7 +89,8 @@ class Game {
   private readonly loop = new FixedStepLoop(1000 / 60, () => this.tick());
   private readonly hudText = new Map<string, string>();
 
-  constructor() {
+  constructor(theme: Theme) {
+    this.renderer.setTheme(theme);
     this.buildChoices(
       'opt-mode',
       MODES,
@@ -139,6 +153,11 @@ class Game {
     el('start').focus();
     this.updatePadStatus();
     requestAnimationFrame((now) => this.frame(now));
+  }
+
+  /** A theme file that arrived after the game had started. */
+  setTheme(theme: Theme): void {
+    this.renderer.setTheme(theme);
   }
 
   private get inGame(): boolean {
@@ -386,7 +405,7 @@ class Game {
     show('pause', paused);
   }
 
-  private setText(id: string, text: string): void {
+  private setText(id: StageId, text: string): void {
     if (this.hudText.get(id) === text) return;
     this.hudText.set(id, text);
     el(id).textContent = text;
@@ -401,7 +420,7 @@ class Game {
   }
 
   private buildChoices<T extends string | number>(
-    id: string,
+    id: StageId,
     values: readonly T[],
     get: () => T,
     set: (v: T) => void,
@@ -446,11 +465,11 @@ function visibleOptionRows(): HTMLButtonElement[][] {
   );
 }
 
-function isShown(id: string): boolean {
+function isShown(id: StageId): boolean {
   return !el(id).classList.contains('hidden');
 }
 
-function show(id: string, visible: boolean): void {
+function show(id: StageId, visible: boolean): void {
   el(id).classList.toggle('hidden', !visible);
 }
 
@@ -458,4 +477,42 @@ function range(min: number, max: number): number[] {
   return Array.from({ length: max - min + 1 }, (_, i) => min + i);
 }
 
-new Game();
+/**
+ * Applies the theme, then builds the screens and starts. The theme file gets a moment to arrive first, so the
+ * opening screen is already themed; a slower one is applied when it turns up.
+ */
+async function boot(): Promise<void> {
+  const root = document.documentElement;
+  // Read the host page's own --tank-* values before anything of ours is written over them.
+  const page = readPageOverrides(getComputedStyle(root));
+  const colours = browserColourTools();
+  const load = loadTheme(
+    themeUrl(document, import.meta.url),
+    (url, init) => fetch(url, init),
+    colours.isColour,
+  );
+
+  let game: Game | null = null;
+  let late: ThemeResult | null = null;
+  let checkedFloor: string | null = null;
+  const use = (result: ThemeResult): void => {
+    // A late theme file re-applies the theme; only check the floor's contrast again if the floor has changed.
+    const contrast =
+      result.theme.floor === checkedFloor ? [] : contrastWarnings(result.theme, colours.normalise);
+    checkedFloor = result.theme.floor;
+    for (const warning of [...result.warnings, ...contrast]) console.warn(`[Tank Command] ${warning}`);
+    applyTheme(root, result.theme);
+    game?.setTheme(result.theme);
+  };
+
+  const first = await startTheme(page, load, THEME_WAIT_MS, (result) => {
+    if (game) use(result);
+    else late = result; // arrived just as the game was starting
+  });
+  use(first);
+  mountStage(document, (message) => console.warn(message));
+  game = new Game(first.theme);
+  if (late) use(late);
+}
+
+void boot();

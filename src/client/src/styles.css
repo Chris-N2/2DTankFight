@@ -1,12 +1,19 @@
+/*
+ * Theme. The --tank-* properties come from the host page's CSS or the theme file (see theme.ts); this stylesheet
+ * never defines them, only reads them, with the original look as the fallback. The short --t-* names are just
+ * local shorthands for those reads.
+ */
 :root {
-  --bg: #0d100b;
-  --panel: rgba(20, 26, 16, 0.92);
-  --ink: #f2ecd8;
-  --muted: #a9a58f;
-  --accent: #7be36f;
-  --sand: #c9a66b;
-  --edge: #8a6d3f;
-  --font: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
+  --t-backdrop: var(--tank-backdrop, #0d100b);
+  --t-panel: var(--tank-panel, rgba(20, 26, 16, 0.92));
+  --t-ink: var(--tank-ink, #f2ecd8);
+  --t-muted: var(--tank-muted, #a9a58f);
+  --t-accent: var(--tank-accent, #7be36f);
+  --t-wall: var(--tank-wall, #c9a66b);
+  --t-wall-edge: var(--tank-wall-edge, #8a6d3f);
+  --t-font: var(--tank-font, ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace);
+  --t-button: color-mix(in srgb, var(--t-panel), var(--t-ink) 8%);
+  --t-key: color-mix(in srgb, var(--t-panel), var(--t-ink) 3%);
 }
 
 * {
@@ -18,9 +25,9 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font);
+  background: var(--t-backdrop);
+  color: var(--t-ink);
+  font-family: var(--t-font);
 }
 
 #stage {
@@ -47,8 +54,8 @@ body {
   display: flex;
   gap: 28px;
   padding: 6px 16px;
-  background: rgba(13, 16, 11, 0.7);
-  border: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--t-backdrop) 70%, transparent);
+  border: 1px solid var(--t-wall-edge);
   border-radius: 6px;
   font-size: 15px;
   white-space: nowrap;
@@ -56,14 +63,14 @@ body {
 }
 
 .hud-label {
-  color: var(--muted);
+  color: var(--t-muted);
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 0.08em;
 }
 
 .hud-hp {
-  color: var(--accent);
+  color: var(--t-accent);
   letter-spacing: 0.15em;
 }
 
@@ -75,9 +82,17 @@ body {
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
+  /*
+   * The banner floats over the arena, walls included, with no panel behind it. A halo in the backdrop colour keeps
+   * it readable over anything, in any theme (the text colour is chosen to contrast with the backdrop).
+   */
+  --halo: var(--t-backdrop);
   text-shadow:
-    0 3px 0 #000,
-    0 0 18px rgba(0, 0, 0, 0.8);
+    0 0 2px var(--halo),
+    0 0 4px var(--halo),
+    0 0 8px var(--halo),
+    0 3px 0 var(--halo),
+    0 0 22px color-mix(in srgb, var(--halo) 85%, transparent);
 }
 
 .banner-title {
@@ -89,7 +104,7 @@ body {
 .banner-sub {
   margin-top: 6px;
   font-size: clamp(16px, 2.4vw, 24px);
-  color: var(--sand);
+  color: var(--t-ink);
 }
 
 /* Full-screen overlays */
@@ -105,8 +120,8 @@ body {
 
 .panel {
   width: min(520px, 100%);
-  background: var(--panel);
-  border: 2px solid var(--edge);
+  background: var(--t-panel);
+  border: 2px solid var(--t-wall-edge);
   border-radius: 10px;
   padding: 28px 32px;
   text-align: center;
@@ -118,7 +133,7 @@ h2 {
   margin: 0 0 6px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--sand);
+  color: var(--t-wall);
 }
 
 h1 {
@@ -131,7 +146,7 @@ h2 {
 
 .tagline {
   margin: 0 0 22px;
-  color: var(--muted);
+  color: var(--t-muted);
 }
 
 .option {
@@ -143,7 +158,7 @@ h2 {
 }
 
 .option-label {
-  color: var(--ink);
+  color: var(--t-ink);
 }
 
 .choices {
@@ -153,20 +168,20 @@ h2 {
 
 button {
   font: inherit;
-  color: var(--ink);
-  background: #2a3322;
-  border: 2px solid var(--edge);
+  color: var(--t-ink);
+  background: var(--t-button);
+  border: 2px solid var(--t-wall-edge);
   border-radius: 6px;
   padding: 8px 14px;
   cursor: pointer;
 }
 
 button:hover {
-  border-color: var(--sand);
+  border-color: var(--t-wall);
 }
 
 button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--t-accent);
   outline-offset: 2px;
 }
 
@@ -175,9 +190,9 @@ button:focus-visible {
 }
 
 .choices button[aria-checked='true'] {
-  background: var(--sand);
-  border-color: var(--sand);
-  color: #1a1a12;
+  background: var(--t-wall);
+  border-color: var(--t-wall);
+  color: var(--t-backdrop);
   font-weight: 700;
 }
 
@@ -189,9 +204,9 @@ button.primary {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #10200c;
+  background: var(--t-accent);
+  border-color: var(--t-accent);
+  color: var(--t-backdrop);
 }
 
 .buttons {
@@ -205,7 +220,7 @@ button.primary {
 }
 
 body[data-input='gamepad'] button:focus {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--t-accent);
   outline-offset: 3px;
 }
 
@@ -224,18 +239,18 @@ body[data-input='gamepad'] button:focus {
 }
 
 .controls th {
-  color: var(--muted);
+  color: var(--t-muted);
   font-weight: normal;
 }
 
 .pad-status {
   margin: 16px 0 0;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--t-muted);
 }
 
 .pad-status.detected {
-  color: var(--accent);
+  color: var(--t-accent);
 }
 
 kbd {
@@ -243,18 +258,18 @@ kbd {
   min-width: 1.6em;
   padding: 1px 5px;
   margin-right: 3px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--t-wall-edge);
   border-bottom-width: 3px;
   border-radius: 4px;
-  font-family: var(--font);
+  font-family: var(--t-font);
   font-size: 0.9em;
   text-align: center;
-  background: #1b2116;
+  background: var(--t-key);
 }
 
 .hint {
   margin: 18px 0 0;
-  color: var(--muted);
+  color: var(--t-muted);
   font-size: 13px;
   font-style: italic;
 }
@@ -266,7 +281,7 @@ kbd {
 
 .go-best {
   margin: 6px 0 0;
-  color: var(--sand);
+  color: var(--t-wall);
   font-weight: 700;
 }
 

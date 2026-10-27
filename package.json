@@ -16,7 +16,7 @@
     "dev": "npm run dev -w @tank/client",
     "build": "npm run build -w @tank/client",
     "preview": "npm run preview -w @tank/client",
-    "typecheck": "tsc -p src/sim --noEmit && tsc -p src/client --noEmit",
+    "typecheck": "tsc -p src/sim --noEmit && tsc -p src/client --noEmit && tsc -p src/client/test --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
