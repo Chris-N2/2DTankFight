@@ -146,9 +146,11 @@ SHALL control the human tank and the menus.
 
 ### Requirement: Arena rendering
 The client SHALL draw the arena, obstacles, live tanks (showing their heading), shells in flight, and visible effects
-for shots, bounces, hits and eliminations. Each tank SHALL have a distinct colour, and the human's tank SHALL be
-clearly identifiable as "you". Motion SHALL appear smooth regardless of the display's refresh rate, and the arena
-SHALL scale to fit the browser window while keeping its aspect ratio.
+for shots, bounces, hits and eliminations. The arena's floor, grid, obstacles and border SHALL be drawn in the
+theme's colours (see the `theme` spec). Each tank SHALL have a distinct colour. The human's tank SHALL always be drawn
+in the "you" colour, green, whatever the theme, and SHALL be clearly identifiable as "you" by its ring and label.
+Motion SHALL appear smooth regardless of the display's refresh rate, and the arena SHALL scale to fit the browser
+window while keeping its aspect ratio.
 
 For mortars, the client SHALL draw:
 - a landing reticle in front of the human's tank while the human charges, showing where the mortar would land if
@@ -160,6 +162,14 @@ For mortars, the client SHALL draw:
 #### Scenario: Identify your tank
 - **WHEN** a round begins
 - **THEN** the human's tank is visually distinguished from all AI tanks
+
+#### Scenario: You are green
+- **WHEN** a game is played with any theme, in either mode
+- **THEN** the human's tank is drawn in the "you" green, with its ring and "YOU" label
+
+#### Scenario: Themed arena
+- **WHEN** the theme sets the floor, grid, wall, wall edge and border colours
+- **THEN** the arena is drawn in those colours
 
 #### Scenario: Window resize
 - **WHEN** the browser window is resized during play
