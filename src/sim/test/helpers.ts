@@ -3,7 +3,9 @@ import {
   DEFAULT_CONFIG,
   step,
   type Board,
+  type MatchOptions,
   type MatchState,
+  type SimConfig,
   type RoundOutcome,
   type SimEvent,
   type TankInput,
@@ -16,9 +18,37 @@ export const cfg = DEFAULT_CONFIG;
 export const DT = 1 / cfg.tickRate;
 export const R = cfg.tankRadius;
 
+/** Match options without the map choice, for tests that play on one board. */
+export type GameOptions = MatchOptions extends infer O
+  ? O extends MatchOptions
+    ? Omit<O, 'maps'>
+    : never
+  : never;
+
+/** Adds Random maps to options that don't say, for testing option validation. */
+export function withMaps(options: GameOptions): MatchOptions {
+  return { ...options, maps: { kind: 'random' } } as MatchOptions;
+}
+
+/** A match played on `board` alone: a one-map sequence from a catalogue holding just that board. */
+export function matchOn(
+  options: GameOptions,
+  board: Board,
+  seed: number,
+  config: SimConfig = cfg,
+): MatchState {
+  return createMatch(
+    { ...options, maps: { kind: 'sequence', ids: [board.id] } } as MatchOptions,
+    seed,
+    config,
+    [board],
+  );
+}
+
 /** A simple test board with five well-spaced spawn points and the given obstacles. */
 export function makeBoard(obstacles: Rect[] = [], width = 800, height = 600): Board {
   return {
+    id: 'test',
     name: 'Test',
     width,
     height,
@@ -35,7 +65,7 @@ export function makeBoard(obstacles: Rect[] = [], width = 800, height = 600): Bo
 
 /** A match that has skipped the countdown and is in play. */
 export function playing(board: Board = makeBoard(), aiCount = 1, seed = 1, rounds = 5): MatchState {
-  const state = createMatch({ mode: 'lastOneStanding', aiCount, rounds, mortars: false }, board, seed);
+  const state = matchOn({ mode: 'lastOneStanding', aiCount, rounds, mortars: false }, board, seed);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;
@@ -43,7 +73,7 @@ export function playing(board: Board = makeBoard(), aiCount = 1, seed = 1, round
 
 /** A Waves match that has skipped wave 1's countdown and is in play. */
 export function playingWaves(board: Board = makeBoard(), startAiCount = 1, seed = 1): MatchState {
-  const state = createMatch({ mode: 'waves', startAiCount, mortars: false }, board, seed);
+  const state = matchOn({ mode: 'waves', startAiCount, mortars: false }, board, seed);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;

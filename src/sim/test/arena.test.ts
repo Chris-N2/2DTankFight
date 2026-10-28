@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { BUILT_IN_BOARDS, createMatch, PROVING_GROUND, validateBoard, type Board } from '../src';
-import { cfg, finishRound, makeBoard, skipToPlay, tank } from './helpers';
+import {
+  BUILT_IN_BOARDS,
+  NOWHERE_TO_HIDE,
+  PAC_TANK,
+  PROVING_GROUND,
+  RUN_FOR_COVER,
+  validateBoard,
+  type Board,
+} from '../src';
+import { GRID, wallsFromGrid } from '../src/boards/grid';
+import { cfg, finishRound, makeBoard, skipToPlay, tank, matchOn } from './helpers';
 
 const sixBlocks = [
   { x: 150, y: 150, w: 40, h: 40 },
@@ -13,7 +22,7 @@ const sixBlocks = [
 
 describe('arena: board definition', () => {
   test('Board loads from data', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: false },
       PROVING_GROUND,
       3,
@@ -70,24 +79,94 @@ describe('arena: board validity', () => {
   });
 });
 
-describe('arena: single built-in board', () => {
-  test('Same board each round', () => {
-    const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false },
-      PROVING_GROUND,
-      5,
-    );
-    finishRound(state, 'human');
-    finishRound(state, 'ai');
-    skipToPlay(state);
-    expect(state.round).toBe(3);
-    expect(state.board).toEqual(PROVING_GROUND);
+describe('arena: built-in boards', () => {
+  test('Four boards available', () => {
+    expect(BUILT_IN_BOARDS.map((b) => b.name)).toEqual([
+      'Proving Ground',
+      'Run For Cover',
+      'Nowhere (Much) To Hide',
+      'Pac-Tank',
+    ]);
+  });
+
+  test('Built-in boards share a size and have unique ids', () => {
+    for (const board of BUILT_IN_BOARDS) {
+      expect([board.width, board.height]).toEqual([1200, 800]);
+      expect(board.id).toMatch(/^[a-z]+(-[a-z]+)*$/);
+    }
+    expect(new Set(BUILT_IN_BOARDS.map((b) => b.id)).size).toBe(BUILT_IN_BOARDS.length);
+  });
+
+  test('Board loads from data, for every built-in board', () => {
+    for (const board of BUILT_IN_BOARDS) {
+      const state = matchOn({ mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: false }, board, 3);
+      expect(state.board).toEqual(board);
+      expect(state.nav.cols * state.nav.rows).toBe(state.nav.walkable.length);
+      expect(state.nav.walkable.some((w) => w === 1)).toBe(true);
+    }
+  });
+
+  test('Open centre: nobody spawns in the middle of Run For Cover', () => {
+    // The open centre is the space between the top and bottom rows of blocks and the side blocks.
+    const centre = { left: 200, right: 1000, top: 200, bottom: 600 };
+    for (const s of RUN_FOR_COVER.spawns) {
+      const inside = s.x > centre.left && s.x < centre.right && s.y > centre.top && s.y < centre.bottom;
+      expect(inside).toBe(false);
+    }
+    for (let seed = 1; seed <= 20; seed++) {
+      const state = matchOn(
+        { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: false },
+        RUN_FOR_COVER,
+        seed,
+      );
+      for (const t of state.tanks)
+        expect(t.y < centre.top || t.y > centre.bottom || t.x < centre.left || t.x > centre.right).toBe(true);
+    }
+  });
+
+  test('Nowhere (Much) To Hide gives every spawn a barrier nearby', () => {
+    for (const s of NOWHERE_TO_HIDE.spawns) {
+      const near = NOWHERE_TO_HIDE.obstacles.some((r) => {
+        const dx = Math.max(r.x - s.x, 0, s.x - (r.x + r.w));
+        const dy = Math.max(r.y - s.y, 0, s.y - (r.y + r.h));
+        return Math.hypot(dx, dy) < 100;
+      });
+      expect(near).toBe(true);
+    }
+  });
+});
+
+describe('arena: boards drawn on the design grid', () => {
+  test('a picture becomes merged wall rectangles', () => {
+    expect(wallsFromGrid(['##..', '##..', '...#'], 10)).toEqual([
+      { x: 0, y: 0, w: 20, h: 20 },
+      { x: 30, y: 20, w: 10, h: 10 },
+    ]);
+  });
+
+  test('an L shape needs two rectangles, not one per square', () => {
+    expect(wallsFromGrid(['###', '#..', '#..'], 10)).toEqual([
+      { x: 0, y: 0, w: 30, h: 10 },
+      { x: 0, y: 10, w: 10, h: 20 },
+    ]);
+  });
+
+  test('Pac-Tank is symmetric', () => {
+    // Compare square by square: mirrored rectangles may be merged differently.
+    const wallAt = (x: number, y: number): boolean =>
+      PAC_TANK.obstacles.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    for (let y = GRID / 2; y < PAC_TANK.height; y += GRID) {
+      for (let x = GRID / 2; x < PAC_TANK.width; x += GRID) {
+        expect(wallAt(PAC_TANK.width - x, y)).toBe(wallAt(x, y));
+        expect(wallAt(x, PAC_TANK.height - y)).toBe(wallAt(x, y));
+      }
+    }
   });
 });
 
 describe('arena: spawn assignment', () => {
   test('Distinct spawns', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: false },
       PROVING_GROUND,
       11,
@@ -103,7 +182,7 @@ describe('arena: spawn assignment', () => {
 
   test('Spawns vary between rounds', () => {
     const humanSpawns = (seed: number): string[] => {
-      const state = createMatch(
+      const state = matchOn(
         { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
         PROVING_GROUND,
         seed,

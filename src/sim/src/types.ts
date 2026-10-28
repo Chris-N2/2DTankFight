@@ -13,6 +13,8 @@ export interface SpawnPoint {
 }
 
 export interface Board {
+  /** Stable kebab-case id, used in match options. Never shown to players. */
+  id: string;
   name: string;
   width: number;
   height: number;
@@ -154,10 +156,24 @@ export interface AiMemory {
 
 export type GameMode = 'lastOneStanding' | 'waves';
 
+/**
+ * Which board each round or wave is played on. `random` plays every board once, in a shuffled order, before any
+ * repeats; `sequence` plays the listed board ids in order, starting again from the top when they run out.
+ */
+export type MapOptions = { kind: 'random' } | { kind: 'sequence'; ids: string[] };
+
 /** `mortars: false` is classic play: nobody has a mortar. */
 export type MatchOptions =
-  | { mode: 'lastOneStanding'; aiCount: number; rounds: number; mortars: boolean }
-  | { mode: 'waves'; startAiCount: number; mortars: boolean };
+  | { mode: 'lastOneStanding'; aiCount: number; rounds: number; mortars: boolean; maps: MapOptions }
+  | { mode: 'waves'; startAiCount: number; mortars: boolean; maps: MapOptions };
+
+/** Where the match is in its map rotation. */
+export interface MapRotation {
+  /** Board ids in the order they'll be played: the sequence, or the current shuffle of every board. */
+  order: string[];
+  /** Index in `order` of the board the next round or wave will be played on. */
+  next: number;
+}
 
 /**
  * `roundOver` is the pause after a round (Last One Standing) or a cleared wave (Waves). In Waves,
@@ -187,8 +203,12 @@ export interface Scores {
 
 export interface MatchState {
   config: SimConfig;
+  /** Every board this match can be played on. */
+  boards: Board[];
+  /** The board the current round or wave is played on. */
   board: Board;
   nav: NavGrid;
+  maps: MapRotation;
   options: MatchOptions;
   tick: number;
   phase: Phase;
@@ -211,6 +231,8 @@ export interface MatchState {
   rng: RngState;
   /** Separate randomness stream for AI, so AI changes don't reshuffle spawns. */
   aiRng: RngState;
+  /** Separate randomness stream for map choice, so maps don't reshuffle spawns or change what the AI does. */
+  mapRng: RngState;
   ai: Record<string, AiMemory>;
 }
 

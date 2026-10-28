@@ -32,6 +32,34 @@ export function arenaColours(theme: Theme): ArenaColours {
   return { backdrop, floor, grid, wall, wallEdge, border };
 }
 
+/** The parts of a canvas context a thumbnail needs (tests pass a recording fake). */
+export type ThumbnailContext = Pick<CanvasRenderingContext2D, 'fillStyle' | 'fillRect' | 'setTransform'>;
+
+/**
+ * Draws a board's layout, floor and walls in the arena colours, scaled to fill a `width` × `height` picture. No tanks
+ * and no spawn points: a thumbnail shouldn't give away where anyone starts.
+ */
+export function drawThumbnail(
+  ctx: ThumbnailContext,
+  board: Board,
+  colours: ArenaColours,
+  width: number,
+  height: number,
+): void {
+  const scale = Math.min(width / board.width, height / board.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = colours.border;
+  ctx.fillRect(0, 0, width, height);
+  const offsetX = (width - board.width * scale) / 2;
+  const offsetY = (height - board.height * scale) / 2;
+  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+  ctx.fillStyle = colours.floor;
+  ctx.fillRect(0, 0, board.width, board.height);
+  ctx.fillStyle = colours.wall;
+  for (const r of board.obstacles) ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
 /** Render-relevant positions captured before a tick, so frames can interpolate between ticks. */
 export interface Snapshot {
   tanks: Record<string, { x: number; y: number; heading: number }>;
@@ -119,6 +147,20 @@ export class Renderer {
   /** Draws the arena in this theme's colours from the next frame on. */
   setTheme(theme: Theme): void {
     this.colours = arenaColours(theme);
+  }
+
+  /**
+   * Draws `board` as a thumbnail filling `canvas`, which is shown `cssWidth` × `cssHeight` on the page, in the current
+   * theme's colours and crisp on high-DPI screens.
+   */
+  drawThumbnail(canvas: HTMLCanvasElement, board: Board, cssWidth: number, cssHeight: number): void {
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.round(cssWidth * dpr);
+    const height = Math.round(cssHeight * dpr);
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) drawThumbnail(ctx, board, this.colours, width, height);
   }
 
   /** Fits the world into the window, letterboxed, keeping its aspect ratio; crisp on high-DPI screens. */

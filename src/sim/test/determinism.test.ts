@@ -1,14 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import {
-  cloneState,
-  createMatch,
-  PROVING_GROUND,
-  step,
-  type MatchOptions,
-  type SimEvent,
-  type TankInput,
-} from '../src';
-import { ofType } from './helpers';
+import { cloneState, PROVING_GROUND, step, type SimEvent, type TankInput } from '../src';
+import { ofType, matchOn, type GameOptions } from './helpers';
 
 /** A deterministic but busy human input script. */
 function scripted(tick: number): TankInput {
@@ -23,9 +15,9 @@ function scripted(tick: number): TankInput {
 function run(
   seed: number,
   ticks: number,
-  options: MatchOptions = { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
+  options: GameOptions = { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
 ): { state: unknown; events: SimEvent[] } {
-  const state = createMatch(options, PROVING_GROUND, seed);
+  const state = matchOn(options, PROVING_GROUND, seed);
   const events: SimEvent[] = [];
   for (let i = 0; i < ticks; i++) events.push(...step(state, { p1: scripted(i) }));
   return { state: cloneState(state), events };
@@ -41,7 +33,7 @@ describe('simulation: determinism', () => {
   });
 
   test('Deterministic replay in Waves', () => {
-    const options: MatchOptions = { mode: 'waves', startAiCount: 2, mortars: false };
+    const options: GameOptions = { mode: 'waves', startAiCount: 2, mortars: false };
     const a = run(2468, 3000, options);
     const b = run(2468, 3000, options);
     expect(a.state).toEqual(b.state);
@@ -53,7 +45,7 @@ describe('simulation: determinism', () => {
     for (const options of [
       { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: true },
       { mode: 'waves', startAiCount: 2, mortars: true },
-    ] satisfies MatchOptions[]) {
+    ] satisfies GameOptions[]) {
       const a = run(777, 3000, options);
       const b = run(777, 3000, options);
       expect(a.state).toEqual(b.state);
@@ -69,7 +61,7 @@ describe('simulation: determinism', () => {
   test('Runs headless in Node', () => {
     // No DOM here: this test runs in Vitest's Node environment.
     expect(typeof (globalThis as Record<string, unknown>)['document']).toBe('undefined');
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: false },
       PROVING_GROUND,
       2026,

@@ -1,5 +1,7 @@
 import {
+  BUILT_IN_BOARDS,
   HUMAN_ID,
+  SEQUENCE_MAX,
   type GameMode,
   type LastOneStandingResult,
   type MatchOptions,
@@ -20,7 +22,12 @@ export interface SetupChoices {
   startAiCount: number;
   /** Off is classic play. */
   mortars: boolean;
+  maps: MapMode;
+  /** Board ids in the order they'll be played, when `maps` is `sequence`. Kept while Random is chosen, too. */
+  sequence: string[];
 }
+
+export type MapMode = 'random' | 'sequence';
 
 export const DEFAULT_CHOICES: Readonly<SetupChoices> = {
   mode: 'lastOneStanding',
@@ -28,12 +35,59 @@ export const DEFAULT_CHOICES: Readonly<SetupChoices> = {
   rounds: 5,
   startAiCount: 1,
   mortars: true,
+  maps: 'random',
+  sequence: [],
 };
 
-/** The match options for the setup screen's choices: the selected mode's options, plus the mortars setting. */
+/** The match options for the setup screen's choices: the selected mode's options, plus mortars and maps. */
 export function matchOptionsFor(choices: SetupChoices): MatchOptions {
   const { mode, aiCount, rounds, startAiCount, mortars } = choices;
-  return mode === 'waves' ? { mode, startAiCount, mortars } : { mode, aiCount, rounds, mortars };
+  const maps: MatchOptions['maps'] =
+    choices.maps === 'sequence' ? { kind: 'sequence', ids: [...choices.sequence] } : { kind: 'random' };
+  return mode === 'waves' ? { mode, startAiCount, mortars, maps } : { mode, aiCount, rounds, mortars, maps };
+}
+
+/** The most maps the sequence can hold with these choices: 7, or fewer if Last One Standing has fewer rounds. */
+export function sequenceLimitFor(choices: SetupChoices): number {
+  return choices.mode === 'lastOneStanding' ? Math.min(SEQUENCE_MAX, choices.rounds) : SEQUENCE_MAX;
+}
+
+/** Adds a board to the end of the sequence, unless it's full. Returns whether it was added. */
+export function addToSequence(choices: SetupChoices, id: string): boolean {
+  if (choices.sequence.length >= sequenceLimitFor(choices)) return false;
+  choices.sequence.push(id);
+  return true;
+}
+
+/** Removes the sequence's entry at `index`. */
+export function removeFromSequence(choices: SetupChoices, index: number): void {
+  choices.sequence.splice(index, 1);
+}
+
+/**
+ * Shortens the sequence from its end to fit the current limit. Called whenever the limit may have dropped (fewer
+ * rounds, or a switch to Last One Standing), so a sequence that can't be played is never left on screen.
+ */
+export function fitSequence(choices: SetupChoices): void {
+  choices.sequence.length = Math.min(choices.sequence.length, sequenceLimitFor(choices));
+}
+
+/** Why the setup screen's choices can't start a game, or null if they can. */
+export function setupProblem(choices: SetupChoices): string | null {
+  return choices.maps === 'sequence' && choices.sequence.length === 0
+    ? 'Pick at least one map for the sequence, or choose Random.'
+    : null;
+}
+
+/** The sequence's count against its limit, e.g. "3 / 5", and whether it's full. */
+export function sequenceCount(choices: SetupChoices): { text: string; full: boolean } {
+  const limit = sequenceLimitFor(choices);
+  return { text: `${choices.sequence.length} / ${limit}`, full: choices.sequence.length >= limit };
+}
+
+/** A built-in board's display name, or its id if it isn't one. */
+export function boardName(id: string): string {
+  return BUILT_IN_BOARDS.find((b) => b.id === id)?.name ?? id;
 }
 
 export interface BannerText {
@@ -82,11 +136,12 @@ export function bannerFor(
   const waves = state.options.mode === 'waves';
   switch (state.phase) {
     case 'countdown':
+      // The countdown names the board: it has just changed under the player, and playtesters like to know.
       return {
         title: String(Math.max(1, Math.ceil(state.phaseTicks / state.config.tickRate))),
         sub: waves
-          ? [`Wave ${state.round}`, ...changes.map((c) => CHANGE_TEXT[c])].join(' · ')
-          : `Round ${state.round} of ${roundsOf(state)}`,
+          ? [`Wave ${state.round}`, state.board.name, ...changes.map((c) => CHANGE_TEXT[c])].join(' · ')
+          : `Round ${state.round} of ${roundsOf(state)} · ${state.board.name}`,
       };
     case 'playing':
       return showGo ? { title: 'GO!', sub: '' } : null;

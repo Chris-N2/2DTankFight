@@ -1,9 +1,20 @@
 import { describe, expect, test } from 'vitest';
-import { createMatch, DEFAULT_CONFIG, step, type Board, type MatchState, type TankInput } from '../src';
+import { DEFAULT_CONFIG, step, type Board, type MatchState, type TankInput } from '../src';
 import { think } from '../src/ai/think';
 import { lineOfSight } from '../src/geometry';
 import { buildNavGrid, cellAt, findPath } from '../src/nav';
-import { addShell, cfg, makeBoard, ofType, place, playing, playingWaves, tank, world } from './helpers';
+import {
+  addShell,
+  cfg,
+  makeBoard,
+  ofType,
+  place,
+  playing,
+  playingWaves,
+  tank,
+  world,
+  matchOn,
+} from './helpers';
 
 const REACTION_TICKS = Math.round(cfg.aiReactionDelay * cfg.tickRate);
 const RETARGET_TICKS = Math.round(cfg.aiRetargetInterval * cfg.tickRate);
@@ -266,7 +277,7 @@ describe('ai: beatable imperfection', () => {
 
   test('Reproducible behaviour', () => {
     const run = (): string[] => {
-      const state = createMatch(
+      const state = matchOn(
         { mode: 'lastOneStanding', aiCount: 4, rounds: 7, mortars: false },
         makeBoard([{ x: 350, y: 250, w: 100, h: 100 }]),
         99,
@@ -310,7 +321,7 @@ describe('waves: AI tanks are allies', () => {
 
   test('switching co-operation off brings back infighting', () => {
     const config = { ...DEFAULT_CONFIG, wavesAiCooperate: false };
-    const state = createMatch({ mode: 'waves', startAiCount: 2, mortars: false }, sealedBoard(), 1, config);
+    const state = matchOn({ mode: 'waves', startAiCount: 2, mortars: false }, sealedBoard(), 1, config);
     state.phase = 'playing';
     sealedHuman(state);
     const events = [];

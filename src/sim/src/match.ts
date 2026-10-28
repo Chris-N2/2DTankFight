@@ -1,14 +1,16 @@
 import { createAiMemory, think } from './ai/think';
+import { BUILT_IN_BOARDS } from './boards';
 import { DEFAULT_CONFIG, ticks, type SimConfig } from './config';
 import { buildNavGrid } from './nav';
 import { maxTanks, validateOptions } from './options';
-import { createRng, shuffle } from './rng';
+import { createRng, nextInt, shuffle, type RngState } from './rng';
 import { rulesFor } from './rules';
 import { createTank } from './tank';
 import {
   HUMAN_ID,
   type Board,
   type InputMap,
+  type MapRotation,
   type MatchOptions,
   type MatchState,
   type SimEvent,
@@ -18,24 +20,32 @@ import { stepWorld } from './world';
 
 /**
  * Creates a single-player match in the chosen mode, ready to begin the first round's or wave's countdown.
- * Throws if the options are invalid.
+ * `boards` is the catalogue the map options choose from. Throws if the options are invalid.
  */
 export function createMatch(
   options: MatchOptions,
-  board: Board,
   seed: number,
   config: SimConfig = DEFAULT_CONFIG,
+  boards: readonly Board[] = BUILT_IN_BOARDS,
 ): MatchState {
-  const problem = validateOptions(options);
+  const problem = validateOptions(options, boards);
   if (problem) throw new Error(problem);
-  if (board.spawns.length < maxTanks(options)) throw new Error('Board has too few spawn points.');
+  const { maps } = options;
+  const playable = maps.kind === 'random' ? boards : boards.filter((b) => maps.ids.includes(b.id));
+  if (playable.length === 0) throw new Error('There are no boards to play on.');
+  const short = playable.find((b) => b.spawns.length < maxTanks(options));
+  if (short) throw new Error(`Board ${short.name} has too few spawn points.`);
 
   const cfg: SimConfig = { ...config };
+  const mapRng = createRng((seed ^ 0x27d4eb2f) >>> 0);
   const state: MatchState = {
     config: cfg,
-    board: cloneBoard(board),
-    nav: buildNavGrid(board, cfg),
-    options: { ...options },
+    boards: playable.map(cloneBoard),
+    // Replaced with the first round's board when the round starts.
+    board: cloneBoard(playable[0]!),
+    nav: { cellSize: cfg.navCellSize, cols: 0, rows: 0, walkable: [] },
+    maps: firstRotation(options, playable, mapRng),
+    options: cloneOptions(options),
     tick: 0,
     phase: 'countdown',
     phaseTicks: 0,
@@ -53,6 +63,7 @@ export function createMatch(
     nextMortarId: 1,
     rng: createRng(seed),
     aiRng: createRng((seed ^ 0x5bd1e995) >>> 0),
+    mapRng,
     ai: {},
   };
   startRound(state, []);
@@ -118,6 +129,7 @@ function startRound(state: MatchState, events: SimEvent[]): void {
   state.mortarShells = [];
   state.ai = {};
   rulesFor(state).setUp(state, events);
+  nextBoard(state);
 
   const spawnOrder = shuffle(
     state.rng,
@@ -140,6 +152,48 @@ function startRound(state: MatchState, events: SimEvent[]): void {
 
   state.phase = 'countdown';
   state.phaseTicks = ticks(cfg, cfg.countdownDuration);
+}
+
+function firstRotation(options: MatchOptions, boards: readonly Board[], rng: RngState): MapRotation {
+  const order =
+    options.maps.kind === 'sequence'
+      ? [...options.maps.ids]
+      : shuffle(
+          rng,
+          boards.map((b) => b.id),
+        );
+  return { order, next: 0 };
+}
+
+/**
+ * Moves on to the next board in the rotation and makes it the current board, with a fresh navigation grid.
+ * A sequence starts again from the top when it runs out. Random reshuffles every board once each has been played,
+ * making sure the new order doesn't start with the board just played.
+ */
+function nextBoard(state: MatchState): void {
+  const maps = state.maps;
+  if (maps.next >= maps.order.length) {
+    if (state.options.maps.kind === 'sequence') {
+      maps.next = 0;
+    } else {
+      const last = maps.order[maps.order.length - 1];
+      shuffle(state.mapRng, maps.order);
+      if (maps.order.length > 1 && maps.order[0] === last) {
+        const swap = 1 + nextInt(state.mapRng, maps.order.length - 1);
+        maps.order[0] = maps.order[swap]!;
+        maps.order[swap] = last!;
+      }
+      maps.next = 0;
+    }
+  }
+  const id = maps.order[maps.next++]!;
+  const board = state.boards.find((b) => b.id === id)!;
+  state.board = cloneBoard(board);
+  state.nav = buildNavGrid(state.board, state.config);
+}
+
+function cloneOptions(options: MatchOptions): MatchOptions {
+  return JSON.parse(JSON.stringify(options)) as MatchOptions;
 }
 
 function cloneBoard(board: Board): Board {

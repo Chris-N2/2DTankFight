@@ -12,6 +12,7 @@ const towardsCentre = (x: number, y: number): number => Math.atan2(H / 2 - y, W 
  * corner pieces and four mid-side barriers. Four corner spawns plus one at the bottom centre.
  */
 export const PROVING_GROUND: Board = {
+  id: 'proving-ground',
   name: 'Proving Ground',
   width: W,
   height: H,

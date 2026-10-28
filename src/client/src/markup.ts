@@ -19,7 +19,12 @@ export const STAGE_IDS = [
   'hud-mortar-cell',
   'hud-round',
   'hud-score',
+  'map-count',
+  'map-library',
+  'map-picker',
+  'map-sequence',
   'opt-ai',
+  'opt-maps',
   'opt-mode',
   'opt-mortars',
   'opt-rounds',
@@ -28,6 +33,7 @@ export const STAGE_IDS = [
   'pause',
   'settings',
   'setup',
+  'setup-problem',
   'start',
   'tagline',
 ] as const;
@@ -97,6 +103,21 @@ export const STAGE_HTML = `
         <span class="option-label">Mortars</span>
         <div class="choices" id="opt-mortars" role="radiogroup" aria-label="Mortars"></div>
       </div>
+      <div class="option">
+        <span class="option-label">Maps</span>
+        <div class="choices" id="opt-maps" role="radiogroup" aria-label="Maps"></div>
+      </div>
+      <div id="map-picker" class="map-picker hidden">
+        <div class="option option-stacked">
+          <span class="option-label">Add a map</span>
+          <div class="choices map-library" id="map-library" role="group" aria-label="Maps to add"></div>
+        </div>
+        <div class="option option-stacked">
+          <span class="option-label">Sequence <span id="map-count" class="map-count"></span></span>
+          <div class="choices map-sequence" id="map-sequence" role="group" aria-label="Map sequence"></div>
+        </div>
+      </div>
+      <p id="setup-problem" class="setup-problem hidden" role="alert"></p>
       <button id="start" class="primary">Start</button>
       <table class="controls">
         <thead>

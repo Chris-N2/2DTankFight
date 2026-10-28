@@ -1,4 +1,4 @@
-import { createMatch, PROVING_GROUND, step, type MatchState } from '@tank/sim';
+import { createMatch, step, type MatchState } from '@tank/sim';
 import { describe, expect, test } from 'vitest';
 import {
   bannerFor,
@@ -13,13 +13,22 @@ import {
 import { mortarPose } from '../src/renderer';
 
 function match(): MatchState {
-  return createMatch({ mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false }, PROVING_GROUND, 1);
+  return createMatch(
+    {
+      mode: 'lastOneStanding',
+      aiCount: 2,
+      rounds: 5,
+      mortars: false,
+      maps: { kind: 'sequence', ids: ['proving-ground'] },
+    },
+    1,
+  );
 }
 
 describe('round and game flow text', () => {
   test('countdown shows 3, 2, 1 and the round number', () => {
     const state = match();
-    expect(bannerFor(state, false, false)).toEqual({ title: '3', sub: 'Round 1 of 5' });
+    expect(bannerFor(state, false, false)).toEqual({ title: '3', sub: 'Round 1 of 5 · Proving Ground' });
     for (let i = 0; i < 60; i++) step(state, {});
     expect(bannerFor(state, false, false)?.title).toBe('2');
     for (let i = 0; i < 60; i++) step(state, {});
@@ -77,35 +86,46 @@ describe('heads-up display', () => {
 describe('mortars on screen', () => {
   test('Defaults allow an immediate start, with mortars on', () => {
     const options = matchOptionsFor(DEFAULT_CHOICES);
-    expect(options).toEqual({ mode: 'lastOneStanding', aiCount: 3, rounds: 5, mortars: true });
-    expect(() => createMatch(options, PROVING_GROUND, 1)).not.toThrow();
+    expect(options).toEqual({
+      mode: 'lastOneStanding',
+      aiCount: 3,
+      rounds: 5,
+      mortars: true,
+      maps: { kind: 'random' },
+    });
+    expect(() => createMatch(options, 1)).not.toThrow();
   });
 
   test('Classic play', () => {
     const choices = { ...DEFAULT_CHOICES, mortars: false };
-    const state = createMatch(matchOptionsFor(choices), PROVING_GROUND, 1);
+    const state = createMatch(matchOptionsFor(choices), 1);
     expect(state.options.mortars).toBe(false);
     expect(mortarHud(state)).toBeNull();
   });
 
   test('the mortars setting goes with either mode', () => {
     const waves = { ...DEFAULT_CHOICES, mode: 'waves' as const, startAiCount: 2, mortars: false };
-    expect(matchOptionsFor(waves)).toEqual({ mode: 'waves', startAiCount: 2, mortars: false });
+    expect(matchOptionsFor(waves)).toEqual({
+      mode: 'waves',
+      startAiCount: 2,
+      mortars: false,
+      maps: { kind: 'random' },
+    });
   });
 
   test('Play again keeps the mortars setting', () => {
     // "Play again" builds the next game from the same remembered choices; playing a game mustn't change them.
     const choices = { ...DEFAULT_CHOICES, mode: 'waves' as const, startAiCount: 2, mortars: false };
-    const first = createMatch(matchOptionsFor(choices), PROVING_GROUND, 1);
+    const first = createMatch(matchOptionsFor(choices), 1);
     for (let i = 0; i < 600 && first.phase !== 'gameOver'; i++) step(first, {});
-    const again = createMatch(matchOptionsFor(choices), PROVING_GROUND, 2);
+    const again = createMatch(matchOptionsFor(choices), 2);
     expect(again.options).toEqual(first.options);
     expect(again.options.mortars).toBe(false);
     expect(choices).toEqual({ ...DEFAULT_CHOICES, mode: 'waves', startAiCount: 2, mortars: false });
   });
 
   test('Mortar readiness shown', () => {
-    const state = createMatch(matchOptionsFor(DEFAULT_CHOICES), PROVING_GROUND, 1);
+    const state = createMatch(matchOptionsFor(DEFAULT_CHOICES), 1);
     while (state.phase !== 'playing') step(state, {});
     expect(mortarHud(state)).toBe('Ready');
     step(state, { p1: { throttle: 0, turn: 0, fire: false, mortar: true } });

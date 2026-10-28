@@ -108,7 +108,19 @@ player to join (multiplayer).
 
 ## Boards
 
-- Start with a set of **hand-made boards**, one selected at random.
+- A set of **hand-made boards**: Proving Ground, Run For Cover, Nowhere (Much) To Hide and Pac-Tank so far. Each
+  round or wave can be on a different board.
+- The host picks the **map mode**, for either game mode:
+  - **Random** (the default): every board is played once, in a shuffled order, before any repeats, and never the same
+    board twice in a row.
+  - **Sequence**: up to 7 boards in order, repeats allowed. When the list runs out it starts again from the top.
+    In Last One Standing the list can't be longer than the number of rounds. A one-map sequence means "always this
+    map", which is also the quick way to playtest a board.
+- Boards are 1200 × 800, laid out on a **40-unit design grid** (one square is about one tank). Driving corridors are at
+  least 3 squares wide. A maze can be drawn as an ASCII picture (see `pacTank.ts`).
+- Next boards to try: Frustration, Ricochet Alley and Checkerboard, with The Keep as a maybe. Wraparound edges are
+  parked: every system would need to know about the seam.
+- User-made boards (e.g. JSON files) are out of scope for now. Boards are already plain data, so it may not be hard later.
 - A random board generator may be added later. Generated boards must satisfy:
   - a minimum number of obstacles to hide behind,
   - connectivity (no sealed-off areas or trapped spawns),
@@ -136,7 +148,10 @@ Suggested change sequence:
 2. Waves mode (hit points, escalation, wave progression, respawn)
 3. Mortars
 4. Arena theme & hosting (replaces tank selection: see *Tanks*)
-5. Board variety (more hand-made boards, then the optional generator)
+5. Board variety:
+   1. map selection (Random / Sequence) and the first new boards (Run For Cover, Nowhere (Much) To Hide, Pac-Tank);
+   2. more boards after playtesting (Frustration, Ricochet Alley, Checkerboard; maybe The Keep);
+   3. the optional generator.
 6. Multiplayer (room codes, authoritative server, prediction, disconnect handling)
 
 ### QA feedback loop

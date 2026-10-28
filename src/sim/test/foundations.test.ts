@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { cloneState, createMatch, PROVING_GROUND, step } from '../src';
+import { cloneState, PROVING_GROUND, step } from '../src';
 import {
   angleDiff,
   circleRectOverlap,
@@ -10,11 +10,11 @@ import {
   wrapAngle,
 } from '../src/geometry';
 import { createRng, nextFloat, nextInt, nextUint32, shuffle } from '../src/rng';
-import { DT, place, playing, retire, world } from './helpers';
+import { DT, place, playing, retire, world, matchOn } from './helpers';
 
 describe('state', () => {
   test('match state is plain, serialisable data', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: false },
       PROVING_GROUND,
       42,
@@ -112,7 +112,7 @@ describe('geometry', () => {
 
 describe('simulation: fixed-timestep, input-driven advancement', () => {
   test('Ticks advance by a fixed step', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 1, rounds: 1, mortars: false },
       PROVING_GROUND,
       1,

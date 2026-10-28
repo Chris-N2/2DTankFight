@@ -2,9 +2,9 @@ import './styles.css';
 import {
   AI_COUNT_MAX,
   AI_COUNT_MIN,
+  BUILT_IN_BOARDS,
   createMatch,
   HUMAN_ID,
-  PROVING_GROUND,
   ROUND_CHOICES,
   step,
   type GameMode,
@@ -20,15 +20,22 @@ import { FixedStepLoop } from './loop';
 import { mountStage, type StageId } from './markup';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
 import {
+  addToSequence,
   bannerFor,
+  boardName,
   DEFAULT_CHOICES,
+  fitSequence,
   gameOverText,
   hpPips,
   hudScore,
   matchOptionsFor,
   mortarHud,
+  removeFromSequence,
   roundLine,
+  sequenceCount,
+  setupProblem,
   wavesGameOverText,
+  type MapMode,
   type SetupChoices,
 } from './screens';
 import {
@@ -50,6 +57,13 @@ const TAGLINES: Record<GameMode, string> = {
   lastOneStanding: 'Last One Standing · every tank for itself',
   waves: 'Waves · they keep coming, and they work together',
 };
+const MAP_MODES: readonly MapMode[] = ['random', 'sequence'];
+const MAP_MODE_NAMES: Record<MapMode, string> = { random: 'Random', sequence: 'Sequence' };
+/** Every built-in board is the same size, so the canvas is sized from the first. */
+const ARENA = BUILT_IN_BOARDS[0]!;
+/** Thumbnail sizes on the page, in CSS pixels: the library's cards and the sequence strip's entries. */
+const CARD_SIZE = [96, 64] as const;
+const ENTRY_SIZE = [48, 32] as const;
 const GO_MS = 700;
 /** Lets the final explosion play before the result screen appears. */
 const RESULT_DELAY_MS = 1200;
@@ -68,7 +82,7 @@ function el<T extends HTMLElement = HTMLElement>(id: StageId): T {
 class Game {
   private match: MatchState | null = null;
   private prev: Snapshot | null = null;
-  private readonly choices: SetupChoices = { ...DEFAULT_CHOICES };
+  private readonly choices: SetupChoices = { ...DEFAULT_CHOICES, sequence: [...DEFAULT_CHOICES.sequence] };
   /** The escalation steps the current wave brought, for the countdown banner. */
   private waveChanges: readonly WaveChange[] = [];
   private goUntil = 0;
@@ -81,11 +95,7 @@ class Game {
   /** True while the player is driving with a gamepad, so unplugging it mid-round pauses the game. */
   private gamepadInUse = false;
   private readonly effects = new Effects();
-  private readonly renderer = new Renderer(
-    el<HTMLCanvasElement>('game'),
-    PROVING_GROUND.width,
-    PROVING_GROUND.height,
-  );
+  private readonly renderer = new Renderer(el<HTMLCanvasElement>('game'), ARENA.width, ARENA.height);
   private readonly loop = new FixedStepLoop(1000 / 60, () => this.tick());
   private readonly hudText = new Map<string, string>();
 
@@ -98,6 +108,7 @@ class Game {
       (v) => {
         this.choices.mode = v;
         this.showModeOptions();
+        this.limitChanged();
       },
       (v) => MODE_NAMES[v],
     );
@@ -111,7 +122,10 @@ class Game {
       'opt-rounds',
       ROUND_CHOICES,
       () => this.choices.rounds,
-      (v) => (this.choices.rounds = v),
+      (v) => {
+        this.choices.rounds = v;
+        this.limitChanged();
+      },
     );
     this.buildChoices(
       'opt-start-ai',
@@ -126,7 +140,19 @@ class Game {
       (v) => (this.choices.mortars = v === 'on'),
       (v) => (v === 'on' ? 'On' : 'Off (classic)'),
     );
+    this.buildChoices(
+      'opt-maps',
+      MAP_MODES,
+      () => this.choices.maps,
+      (v) => {
+        this.choices.maps = v;
+        this.renderMapPicker();
+      },
+      (v) => MAP_MODE_NAMES[v],
+    );
+    this.buildMapLibrary();
     this.showModeOptions();
+    this.renderMapPicker();
     el('start').addEventListener('click', () => this.start());
     el('again').addEventListener('click', () => this.start());
     el('settings').addEventListener('click', () => this.showSetup());
@@ -158,6 +184,7 @@ class Game {
   /** A theme file that arrived after the game had started. */
   setTheme(theme: Theme): void {
     this.renderer.setTheme(theme);
+    this.drawThumbnails();
   }
 
   private get inGame(): boolean {
@@ -165,9 +192,11 @@ class Game {
   }
 
   private start(): void {
+    // Every way of starting comes through here (button, Enter, the gamepad's Start), so this one check covers them.
+    if (setupProblem(this.choices)) return;
     const seed = (Date.now() ^ Math.floor(Math.random() * 0x100000000)) >>> 0;
     // "Play again" comes through here too, so it keeps the mode and options.
-    this.match = createMatch(matchOptionsFor(this.choices), PROVING_GROUND, seed);
+    this.match = createMatch(matchOptionsFor(this.choices), seed);
     this.prev = null;
     this.selfInflicted = false;
     this.waveChanges = [];
@@ -280,7 +309,7 @@ class Game {
         this.setText('banner-sub', banner.sub);
       }
     } else {
-      this.renderer.drawIdle(PROVING_GROUND);
+      this.renderer.drawIdle(ARENA);
     }
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -419,6 +448,93 @@ class Game {
     el('tagline').textContent = TAGLINES[this.choices.mode];
   }
 
+  /** The number of rounds or the mode changed, so the sequence's limit may have too. */
+  private limitChanged(): void {
+    fitSequence(this.choices);
+    this.renderMapPicker();
+  }
+
+  /** The library: every built-in board, as a card that adds it to the end of the sequence. */
+  private buildMapLibrary(): void {
+    const library = el('map-library');
+    for (const board of BUILT_IN_BOARDS) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'map-card';
+      card.setAttribute('aria-label', `Add ${board.name}`);
+      card.append(thumbnailCanvas(board.id, CARD_SIZE), board.name);
+      card.addEventListener('click', () => {
+        if (addToSequence(this.choices, board.id)) this.renderMapPicker();
+      });
+      library.appendChild(card);
+    }
+  }
+
+  /**
+   * Brings the Maps option's dependants up to date: the picker (shown for Sequence only), the sequence strip, its
+   * count, which cards can still be added, and whether the game can start.
+   */
+  private renderMapPicker(): void {
+    show('map-picker', this.choices.maps === 'sequence');
+    const strip = el('map-sequence');
+    const focusedIndex = [...strip.querySelectorAll('button')].findIndex((b) => b === document.activeElement);
+    strip.replaceChildren();
+    this.choices.sequence.forEach((id, i) => {
+      const entry = document.createElement('button');
+      entry.type = 'button';
+      entry.className = 'map-entry';
+      entry.title = boardName(id);
+      entry.setAttribute('aria-label', `Remove map ${i + 1}, ${boardName(id)}`);
+      entry.append(`${i + 1}`, thumbnailCanvas(id, ENTRY_SIZE));
+      entry.addEventListener('click', () => {
+        removeFromSequence(this.choices, i);
+        this.renderMapPicker();
+      });
+      strip.appendChild(entry);
+    });
+    if (this.choices.sequence.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'map-empty';
+      empty.textContent = 'No maps yet: add some from above.';
+      strip.appendChild(empty);
+    }
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'map-clear';
+    clear.textContent = 'Clear';
+    clear.setAttribute('aria-disabled', String(this.choices.sequence.length === 0));
+    clear.addEventListener('click', () => {
+      this.choices.sequence.length = 0;
+      this.renderMapPicker();
+    });
+    strip.appendChild(clear);
+    // Removing an entry rebuilds the strip; keep the focus in the same place so the d-pad doesn't lose its way.
+    if (focusedIndex >= 0) {
+      const buttons = strip.querySelectorAll('button');
+      buttons[Math.min(focusedIndex, buttons.length - 1)]?.focus();
+    }
+
+    const count = sequenceCount(this.choices);
+    el('map-count').textContent = count.full ? `${count.text} · full` : count.text;
+    for (const card of el('map-library').querySelectorAll('button')) {
+      card.setAttribute('aria-disabled', String(count.full));
+    }
+    const problem = setupProblem(this.choices);
+    el('setup-problem').textContent = problem ?? '';
+    show('setup-problem', problem !== null);
+    el('start').setAttribute('aria-disabled', String(problem !== null));
+    this.drawThumbnails();
+  }
+
+  /** (Re)draws every map thumbnail in the current theme's colours. */
+  private drawThumbnails(): void {
+    for (const canvas of el('setup').querySelectorAll<HTMLCanvasElement>('canvas[data-board]')) {
+      const board = BUILT_IN_BOARDS.find((b) => b.id === canvas.dataset['board']);
+      const [w, h] = canvas.closest('.map-entry') ? ENTRY_SIZE : CARD_SIZE;
+      if (board) this.renderer.drawThumbnail(canvas, board, w, h);
+    }
+  }
+
   private buildChoices<T extends string | number>(
     id: StageId,
     values: readonly T[],
@@ -460,9 +576,20 @@ function pollGamepads(): GamepadSnapshot[] {
 
 /** The setup screen's option rows that are on show, in order, as rows of buttons for gamepad navigation. */
 function visibleOptionRows(): HTMLButtonElement[][] {
-  return [...document.querySelectorAll<HTMLElement>('#setup .option:not(.hidden) .choices')].map(
-    (choices) => [...choices.querySelectorAll('button')],
-  );
+  return [...document.querySelectorAll<HTMLElement>('#setup .choices')]
+    .filter((choices) => choices.closest('.hidden') === null)
+    .map((choices) => [...choices.querySelectorAll('button')])
+    .filter((row) => row.length > 0);
+}
+
+/** A canvas for a board's thumbnail, sized for the page; Game.drawThumbnails draws it. */
+function thumbnailCanvas(boardId: string, [width, height]: readonly [number, number]): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.dataset['board'] = boardId;
+  canvas.width = width;
+  canvas.height = height;
+  canvas.setAttribute('aria-hidden', 'true');
+  return canvas;
 }
 
 function isShown(id: StageId): boolean {

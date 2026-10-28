@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PALETTE, SHELL } from '../src/colours';
-import { createMatch, HUMAN_ID, PROVING_GROUND } from '@tank/sim';
+import { createMatch, HUMAN_ID } from '@tank/sim';
 import { arenaColours, colorOf } from '../src/renderer';
 import {
   applyTheme,
@@ -234,8 +234,13 @@ describe('theme: start-up', () => {
 describe('theme: gameplay colours', () => {
   test('You are green, and Tanks keep their colours, whatever the theme', () => {
     const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 4, rounds: 3, mortars: true },
-      PROVING_GROUND,
+      {
+        mode: 'lastOneStanding',
+        aiCount: 4,
+        rounds: 3,
+        mortars: true,
+        maps: { kind: 'sequence', ids: ['proving-ground'] },
+      },
       1,
     );
     // The theme never reaches tank colours: they come from the fixed palette, by tank.

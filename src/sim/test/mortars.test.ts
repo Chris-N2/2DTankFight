@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createMatch,
   DEFAULT_CONFIG,
   mortarLanding,
   mortarRange,
@@ -26,6 +25,7 @@ import {
   skipToPlay,
   tank,
   world,
+  matchOn,
 } from './helpers';
 
 const FULL = Math.round(cfg.mortarChargeTime * cfg.tickRate);
@@ -35,12 +35,7 @@ const REACH = cfg.mortarSplashRadius + R;
 
 /** A Last One Standing match with mortars on, in play, with the human and one AI tank. */
 function armed(board: Board = makeBoard(), config: SimConfig = DEFAULT_CONFIG): MatchState {
-  const state = createMatch(
-    { mode: 'lastOneStanding', aiCount: 1, rounds: 5, mortars: true },
-    board,
-    1,
-    config,
-  );
+  const state = matchOn({ mode: 'lastOneStanding', aiCount: 1, rounds: 5, mortars: true }, board, 1, config);
   state.phase = 'playing';
   state.phaseTicks = 0;
   return state;
@@ -95,17 +90,13 @@ describe('mortars: option', () => {
       typeof validateOptions
     >[0];
     expect(validateOptions(bad)).toMatch(/mortars/i);
-    expect(() => createMatch(bad, makeBoard(), 1)).toThrow(/mortars/i);
+    expect(() => matchOn(bad, makeBoard(), 1)).toThrow(/mortars/i);
     const missing = { mode: 'waves', startAiCount: 1 } as unknown as Parameters<typeof validateOptions>[0];
     expect(validateOptions(missing)).not.toBeNull();
   });
 
   test('Classic play', () => {
-    const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 1, rounds: 5, mortars: false },
-      makeBoard(),
-      1,
-    );
+    const state = matchOn({ mode: 'lastOneStanding', aiCount: 1, rounds: 5, mortars: false }, makeBoard(), 1);
     state.phase = 'playing';
     place(state, 'p1', 100, 300, 0);
     retire(state, 'ai1');
@@ -405,7 +396,7 @@ describe('mortars: landing helper', () => {
 
 describe('mortars: rounds and waves', () => {
   test('Everyone is armed', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 3, mortars: true },
       PROVING_GROUND,
       1,
@@ -434,11 +425,7 @@ describe('mortars: rounds and waves', () => {
   });
 
   test('Countdown freezes tanks, mortar included', () => {
-    const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 1, rounds: 3, mortars: true },
-      makeBoard(),
-      1,
-    );
+    const state = matchOn({ mode: 'lastOneStanding', aiCount: 1, rounds: 3, mortars: true }, makeBoard(), 1);
     expect(state.phase).toBe('countdown');
     const events: SimEvent[] = [];
     for (let i = 0; i < 20; i++)
@@ -464,7 +451,7 @@ describe('mortars: rounds and waves', () => {
   });
 
   test('Mortar refilled each wave', () => {
-    const state = createMatch({ mode: 'waves', startAiCount: 1, mortars: true }, makeBoard(), 1);
+    const state = matchOn({ mode: 'waves', startAiCount: 1, mortars: true }, makeBoard(), 1);
     expect(tank(state, 'p1').mortars).toBe(1);
     skipToPlay(state);
     lobFor(state, 1);
@@ -476,7 +463,7 @@ describe('mortars: rounds and waves', () => {
   });
 
   test('Only humans have mortars', () => {
-    const state = createMatch({ mode: 'waves', startAiCount: 4, mortars: true }, PROVING_GROUND, 5);
+    const state = matchOn({ mode: 'waves', startAiCount: 4, mortars: true }, PROVING_GROUND, 5);
     for (const t of state.tanks) expect(t.mortars).toBe(t.kind === 'human' ? 1 : 0);
     // A long wave with a human who can't be destroyed and hides: the AI never lobs.
     skipToPlay(state);
@@ -495,8 +482,8 @@ function hidden(mortars = true, mode: 'lastOneStanding' | 'waves' = 'lastOneStan
   const board = makeBoard([{ x: 390, y: 0, w: 20, h: 600 }]);
   const state =
     mode === 'waves'
-      ? createMatch({ mode, startAiCount: 1, mortars }, board, seed)
-      : createMatch({ mode, aiCount: 1, rounds: 3, mortars }, board, seed);
+      ? matchOn({ mode, startAiCount: 1, mortars }, board, seed)
+      : matchOn({ mode, aiCount: 1, rounds: 3, mortars }, board, seed);
   state.phase = 'playing';
   place(state, 'p1', 200, 300, 0);
   place(state, 'ai1', 600, 300, Math.PI);
@@ -556,7 +543,7 @@ describe('ai: mortar use', () => {
     // Regression (QA): an AI that retargeted mid-lob used to swing round and lob at a tank it could simply shoot.
     let launches = 0;
     for (let seed = 1; seed <= 30; seed++) {
-      const state = createMatch(
+      const state = matchOn(
         { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: true },
         PROVING_GROUND,
         seed,
@@ -597,7 +584,7 @@ describe('ai: mortar use', () => {
 
   test('Reproducible lobs', () => {
     const run = (): SimEvent[] => {
-      const state = createMatch(
+      const state = matchOn(
         { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: true },
         PROVING_GROUND,
         1, // a seed where an AI's target stays hidden long enough for a lob

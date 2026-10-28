@@ -7,31 +7,43 @@ import {
   type MatchState,
   type RoundOutcome,
 } from '../src';
-import { addShell, cfg, count, finishRound, ofType, place, playing, skipToPlay, tank } from './helpers';
+import {
+  addShell,
+  cfg,
+  count,
+  finishRound,
+  ofType,
+  place,
+  playing,
+  skipToPlay,
+  tank,
+  matchOn,
+  withMaps,
+} from './helpers';
 
 const COUNTDOWN_TICKS = Math.round(cfg.countdownDuration * cfg.tickRate);
 const RESULT_TICKS = Math.round(cfg.roundResultDuration * cfg.tickRate);
 
 function playOut(rounds: number, outcomes: RoundOutcome[]): MatchState {
-  const state = createMatch(
-    { mode: 'lastOneStanding', aiCount: 2, rounds, mortars: false },
-    PROVING_GROUND,
-    77,
-  );
+  const state = matchOn({ mode: 'lastOneStanding', aiCount: 2, rounds, mortars: false }, PROVING_GROUND, 77);
   for (const o of outcomes) finishRound(state, o);
   return state;
 }
 
 describe('last-one-standing: game options', () => {
   test('Valid options accepted', () => {
-    const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: false },
-      PROVING_GROUND,
-      1,
-    );
+    const options = withMaps({ mode: 'lastOneStanding', aiCount: 4, rounds: 5, mortars: true });
+    expect(validateOptions(options)).toBeNull();
+    const state = createMatch(options, 1);
     expect(state.tanks.filter((t) => t.kind === 'ai')).toHaveLength(4);
     expect(state.tanks.filter((t) => t.kind === 'human')).toHaveLength(1);
-    expect(state.options).toMatchObject({ mode: 'lastOneStanding', rounds: 5, mortars: false });
+    expect(state.tanks.every((t) => t.mortars === 1)).toBe(true);
+    expect(state.options).toMatchObject({
+      mode: 'lastOneStanding',
+      rounds: 5,
+      mortars: true,
+      maps: { kind: 'random' },
+    });
   });
 
   test('Out-of-range options rejected', () => {
@@ -44,17 +56,19 @@ describe('last-one-standing: game options', () => {
       { mode: 'lastOneStanding' as const, aiCount: 2, rounds: 9, mortars: false },
       { mode: 'lastOneStanding' as const, aiCount: 1.5, rounds: 3, mortars: false },
     ]) {
-      expect(validateOptions(options)).not.toBeNull();
-      expect(() => createMatch(options, PROVING_GROUND, 1)).toThrow();
+      expect(validateOptions(withMaps(options))).not.toBeNull();
+      expect(() => matchOn(options, PROVING_GROUND, 1)).toThrow();
     }
     for (const rounds of [1, 3, 5, 7])
-      expect(validateOptions({ mode: 'lastOneStanding', aiCount: 1, rounds, mortars: false })).toBeNull();
+      expect(
+        validateOptions(withMaps({ mode: 'lastOneStanding', aiCount: 1, rounds, mortars: false })),
+      ).toBeNull();
   });
 });
 
 describe('last-one-standing: round start', () => {
   test('Countdown freezes tanks', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 4, rounds: 3, mortars: false },
       PROVING_GROUND,
       8,
@@ -73,7 +87,7 @@ describe('last-one-standing: round start', () => {
   });
 
   test('Full health at round start', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 3, rounds: 5, mortars: false },
       PROVING_GROUND,
       4,
@@ -197,7 +211,7 @@ describe('last-one-standing: game end', () => {
 
 describe('last-one-standing: rounds are independent', () => {
   test('Fresh round', () => {
-    const state = createMatch(
+    const state = matchOn(
       { mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false },
       PROVING_GROUND,
       31,

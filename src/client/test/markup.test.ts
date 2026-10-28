@@ -29,6 +29,30 @@ describe('hosting: the game builds its own screens', () => {
   });
 });
 
+describe('setup: map picker wiring', () => {
+  // There's no DOM in these tests, so these check the wiring the picker's behaviour depends on; the behaviour itself
+  // is tested through screens.ts (see maps-screens.test.ts).
+  const main = read('../src/main.ts');
+
+  test('Empty sequence can’t start: every way of starting is refused while setup has a problem', () => {
+    const start = /private start\(\): void \{\s*(?:\/\/[^\n]*\n\s*)*([^\n]*)/.exec(main)?.[1];
+    expect(start).toBe('if (setupProblem(this.choices)) return;');
+    // The Start and Play again buttons, Enter, and the gamepad's Start button all go through start().
+    const starts = [...main.matchAll(/this\.start\(\)|el\('start'\)\.click\(\)/g)].length;
+    expect(starts).toBe(4);
+    expect([...main.matchAll(/createMatch\(/g)]).toHaveLength(1);
+  });
+
+  test('Picking with the gamepad: the library and sequence are rows of options on the setup screen', () => {
+    for (const id of ['map-library', 'map-sequence']) {
+      expect(STAGE_HTML).toMatch(new RegExp(`class="choices [^"]*" id="${id}"`));
+    }
+    // The gamepad and arrow keys move round every visible .choices row on the setup screen, including the picker's.
+    expect(main).toContain("document.querySelectorAll<HTMLElement>('#setup .choices')");
+    expect(main).toContain(".filter((choices) => choices.closest('.hidden') === null)");
+  });
+});
+
 describe('hosting: mounting', () => {
   type FakeElement = { id: string; innerHTML: string };
 

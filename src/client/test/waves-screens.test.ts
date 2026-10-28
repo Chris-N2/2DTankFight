@@ -1,11 +1,14 @@
-import { createMatch, PROVING_GROUND, step, type MatchState, type SimEvent } from '@tank/sim';
+import { createMatch, step, type MatchState, type SimEvent } from '@tank/sim';
 import { describe, expect, test } from 'vitest';
 import { bestKey, recordBest, type StorageLike } from '../src/best';
 import { snapshot, tankPose } from '../src/renderer';
 import { bannerFor, gameOverText, hpPips, hudScore, roundLine, wavesGameOverText } from '../src/screens';
 
 function wavesMatch(startAiCount = 1): MatchState {
-  return createMatch({ mode: 'waves', startAiCount, mortars: false }, PROVING_GROUND, 3);
+  return createMatch(
+    { mode: 'waves', startAiCount, mortars: false, maps: { kind: 'sequence', ids: ['proving-ground'] } },
+    3,
+  );
 }
 
 /** Clears the current wave through the real rules and returns the events up to the next wave's countdown. */
@@ -49,8 +52,13 @@ describe('waves: heads-up display', () => {
 
   test('Last One Standing keeps its round and score', () => {
     const state = createMatch(
-      { mode: 'lastOneStanding', aiCount: 2, rounds: 5, mortars: false },
-      PROVING_GROUND,
+      {
+        mode: 'lastOneStanding',
+        aiCount: 2,
+        rounds: 5,
+        mortars: false,
+        maps: { kind: 'sequence', ids: ['proving-ground'] },
+      },
       1,
     );
     expect(roundLine(state)).toBe('Round 1 / 5');
@@ -74,21 +82,21 @@ describe('waves: flow banners', () => {
     }
     // Waves 2 and 3 bring more tanks with less armour; wave 4 adds a tank at the same armour.
     expect(subs).toEqual([
-      'Wave 2 · More tanks, thinner armour',
-      'Wave 3 · More tanks, thinner armour',
-      'Wave 4',
+      'Wave 2 · Proving Ground · More tanks, thinner armour',
+      'Wave 3 · Proving Ground · More tanks, thinner armour',
+      'Wave 4 · Proving Ground',
     ]);
   });
 
   test('wave 1 announces nothing but the wave', () => {
     for (const start of [1, 2, 3, 4]) {
-      expect(bannerFor(wavesMatch(start), false, false)?.sub).toBe('Wave 1');
+      expect(bannerFor(wavesMatch(start), false, false)?.sub).toBe('Wave 1 · Proving Ground');
     }
   });
 
   test('countdown names the wave', () => {
     const state = wavesMatch();
-    expect(bannerFor(state, false, false)).toEqual({ title: '3', sub: 'Wave 1' });
+    expect(bannerFor(state, false, false)).toEqual({ title: '3', sub: 'Wave 1 · Proving Ground' });
   });
 
   test('Escalation is announced', () => {
@@ -96,7 +104,7 @@ describe('waves: flow banners', () => {
     const started = clearWave(state).find((e) => e.type === 'waveStarted');
     expect(started).toMatchObject({ wave: 2, changes: ['armour'] });
     const changes = started?.type === 'waveStarted' ? started.changes : [];
-    expect(bannerFor(state, false, false, changes)?.sub).toBe('Wave 2 · AI armour up');
+    expect(bannerFor(state, false, false, changes)?.sub).toBe('Wave 2 · Proving Ground · AI armour up');
   });
 
   test('every escalation step has its announcement', () => {
@@ -108,15 +116,15 @@ describe('waves: flow banners', () => {
       subs.push(bannerFor(state, false, false, changes)?.sub);
     }
     expect(subs).toEqual([
-      'Wave 2 · AI armour up',
-      'Wave 3 · AI armour up',
-      'Wave 4 · AI hits harder',
-      'Wave 5 · One hit is lethal!',
-      'Wave 6 · AI shells faster',
-      'Wave 7 · AI shells faster',
-      'Wave 8 · AI shells faster',
-      'Wave 9 · AI shells faster',
-      'Wave 10 · AI shells faster',
+      'Wave 2 · Proving Ground · AI armour up',
+      'Wave 3 · Proving Ground · AI armour up',
+      'Wave 4 · Proving Ground · AI hits harder',
+      'Wave 5 · Proving Ground · One hit is lethal!',
+      'Wave 6 · Proving Ground · AI shells faster',
+      'Wave 7 · Proving Ground · AI shells faster',
+      'Wave 8 · Proving Ground · AI shells faster',
+      'Wave 9 · Proving Ground · AI shells faster',
+      'Wave 10 · Proving Ground · AI shells faster',
     ]);
   });
 
