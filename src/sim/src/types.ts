@@ -146,6 +146,18 @@ export interface AiMemory {
   recoverTurn: -1 | 1;
   /** Consecutive ticks the current target has been hidden from this AI's turret. */
   hiddenTicks: number;
+  /** Whether the AI was engaging its target (lined up from where it is) last tick. Leaving takes a clear change. */
+  engaging: boolean;
+  /** Ticks since this AI last moved meaningfully or fired, measured from `progressRefX`/`progressRefY`. */
+  progressTicks: number;
+  progressRefX: number;
+  progressRefY: number;
+  /** Where this AI last got stuck, and for how many more ticks it keeps away from there. */
+  avoidX: number;
+  avoidY: number;
+  avoidTicks: number;
+  /** The way this AI last turned while navigating (-1, 0 or 1). */
+  navTurn: number;
   /**
    * The mortar lob this AI has committed to, or null when not lobbing. It keeps its own target, apart from
    * `targetId`, so a retarget mid-lob can't swing it round onto a tank the AI could simply shoot. `x`/`y` is that

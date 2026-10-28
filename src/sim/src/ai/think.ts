@@ -7,6 +7,37 @@ import type { AiMemory, MatchState, TankInput, TankState } from '../types';
 
 /** Beyond this distance a lined-up AI keeps closing in (shells have a limited lifetime). */
 const ENGAGE_ADVANCE_DISTANCE = 420;
+/**
+ * After backing off, an AI won't settle back within this distance of where it got stuck (one grid square) for
+ * `AVOID_SECONDS`, whether by engaging from there or planning a route back. Otherwise it reverses a tank's length,
+ * still sees the target, drives straight back in and gets stuck the same way: a shuffle instead of a wobble.
+ */
+const AVOID_RADIUS = 40;
+const AVOID_SECONDS = 3;
+/**
+ * A spot to drive to needs a firing lane this much wider than `SHOT_LANE`, checked from its cell's centre, because a
+ * tank stops anywhere within reach of that centre. A little slack means it can usually shoot once it arrives; much more
+ * would send it to cleaner spots than before, and it would hit noticeably more often.
+ */
+const GOAL_LANE_MARGIN = 4;
+/**
+ * When choosing a target, a hidden tank counts as this much farther away than a visible one. A visible target used to
+ * win outright, however far away: an AI hunting a nearby hidden tank would swing round towards a distant one that came
+ * into view at the edge of its sight, lose sight of it, and swing back again.
+ */
+const HIDDEN_TARGET_PENALTY = 500;
+/**
+ * An AI sticks with its target until that target has been out of its sights this long, unless another one is in plain
+ * view. Otherwise a target ducking in and out of sight has the AI turning to another tank and back every retarget.
+ */
+const TARGET_GRACE_SECONDS = 2;
+/** A waypoint counts as reached within this many cells of its centre. */
+const WAYPOINT_REACH = 0.75;
+/**
+ * While navigating, don't reverse the way it's turning for less than this. A tank nudged by a collision sees the bearing
+ * to a nearby waypoint jump about, and would otherwise twitch left and right every tick.
+ */
+const NAV_REVERSE_ANGLE = (10 * Math.PI) / 180;
 /** Only drive forward when facing within this angle of the next waypoint; otherwise turn on the spot. */
 const DRIVE_ANGLE = (35 * Math.PI) / 180;
 /**
@@ -14,6 +45,17 @@ const DRIVE_ANGLE = (35 * Math.PI) / 180;
  * sight isn't enough: with aim error, shells graze nearby corners and two AIs can trade misses forever.
  */
 export const SHOT_LANE = 8;
+/**
+ * Once engaging, the AI keeps at it until the lane narrows to this half-width (or the line of sight goes), rather than
+ * dropping out the moment it's under `SHOT_LANE`. Next to a corner, a tank nudged by a unit or two would otherwise flip
+ * between engaging and navigating every few ticks, turning one way and then the other on the spot. Entering is as strict
+ * as ever, and the barrel is still checked before every shot.
+ */
+const SHOT_LANE_KEEP = 4;
+/** Likewise, an engaging AI only gives up and takes a route once the target is this far away... */
+const ENGAGE_KEEP_DISTANCE = 450;
+/** ...and the straight drive there has narrowed by this much more than the tank's own radius. */
+const ROUTE_LANE_SLACK = 4;
 
 export function createAiMemory(): AiMemory {
   return {
@@ -32,6 +74,14 @@ export function createAiMemory(): AiMemory {
     recoverTicks: 0,
     recoverTurn: 1,
     hiddenTicks: 0,
+    engaging: false,
+    progressTicks: 0,
+    progressRefX: 0,
+    progressRefY: 0,
+    avoidX: 0,
+    avoidY: 0,
+    avoidTicks: 0,
+    navTurn: 0,
     lob: null,
   };
 }
@@ -41,9 +91,32 @@ export function createAiMemory(): AiMemory {
  * only act through the returned input — exactly what a human could press.
  */
 export function think(state: MatchState, tank: TankState): TankInput {
-  const cfg = state.config;
   const mem = state.ai[tank.id] ?? (state.ai[tank.id] = createAiMemory());
+  const input = decide(state, tank, mem);
+  return makingProgress(state, tank, mem, input) ? input : startRecovery(state, tank, mem);
+}
+
+/**
+ * The backstop against every kind of stall, found or not yet found: an AI that has neither moved nor fired for a
+ * whole progress window backs off and plans afresh. Only a committed lob (short, and meant to be stood still for) and
+ * a recovery already under way pause it; nothing else can reset it.
+ */
+function makingProgress(state: MatchState, tank: TankState, mem: AiMemory, input: TankInput): boolean {
+  const cfg = state.config;
+  const moved = distance(tank.x, tank.y, mem.progressRefX, mem.progressRefY) > cfg.aiStuckDistance;
+  if (input.fire || moved || mem.lob || mem.recoverTicks > 0 || mem.targetId === null) {
+    mem.progressTicks = 0;
+    mem.progressRefX = tank.x;
+    mem.progressRefY = tank.y;
+    return true;
+  }
+  return ++mem.progressTicks < ticks(cfg, cfg.aiProgressWindow);
+}
+
+function decide(state: MatchState, tank: TankState, mem: AiMemory): TankInput {
+  const cfg = state.config;
   if (mem.fireWaitTicks > 0) mem.fireWaitTicks--;
+  if (mem.avoidTicks > 0) mem.avoidTicks--;
 
   const target = selectTarget(state, tank, mem);
   const halfTurnStep = (cfg.tankTurnRate * tickDuration(cfg)) / 2;
@@ -73,8 +146,10 @@ export function think(state: MatchState, tank: TankState): TankInput {
   }
 
   const obstacles = state.board.obstacles;
+  const engaging = mem.engaging;
+  mem.engaging = false;
 
-  if (hasClearLane(tank.x, tank.y, target.x, target.y, obstacles, SHOT_LANE)) {
+  if (hasClearLane(tank.x, tank.y, target.x, target.y, obstacles, engaging ? SHOT_LANE_KEEP : SHOT_LANE)) {
     mem.hiddenTicks = 0;
     mem.seenTicks++;
     if (mem.seenTicks === 1) mem.aimOffset = rollAimError(state);
@@ -82,12 +157,24 @@ export function think(state: MatchState, tank: TankState): TankInput {
     const range = distance(tank.x, tank.y, target.x, target.y);
     // Too far away, and no room for the tank itself to drive straight there: take a route instead.
     if (
-      range > ENGAGE_ADVANCE_DISTANCE &&
-      !hasClearLane(tank.x, tank.y, target.x, target.y, obstacles, cfg.tankRadius)
+      range > (engaging ? ENGAGE_KEEP_DISTANCE : ENGAGE_ADVANCE_DISTANCE) &&
+      !hasClearLane(
+        tank.x,
+        tank.y,
+        target.x,
+        target.y,
+        obstacles,
+        engaging ? cfg.tankRadius - ROUTE_LANE_SLACK : cfg.tankRadius,
+      )
     ) {
       mem.blockedTicks = 0;
       return navigate(state, tank, target, mem, halfTurnStep);
     }
+    if (avoiding(mem, tank.x, tank.y)) {
+      mem.blockedTicks = 0;
+      return navigate(state, tank, target, mem, halfTurnStep);
+    }
+    mem.engaging = true;
     const aim = Math.atan2(target.y - tank.y, target.x - tank.x) + mem.aimOffset;
     const diff = angleDiff(tank.heading, aim);
     const turn = Math.abs(diff) > halfTurnStep ? (diff > 0 ? 1 : -1) : 0;
@@ -110,20 +197,19 @@ export function think(state: MatchState, tank: TankState): TankInput {
         ticks(cfg, cfg.fireCooldown) + ticks(cfg, nextRange(state.aiRng, 0, cfg.aiFirePauseMax));
     }
 
-    // Lined up, but the aim error has the barrel clipping cover, or an ally is in the way. Re-aim every so
-    // often; if that still doesn't clear it (turning only goes in whole steps, and allies may not move),
-    // back off and come at it from a new spot.
+    // Lined up, but the aim error has the barrel clipping cover, or an ally is in the way. Hold the aim (re-rolling it
+    // swung the barrel left and right on the spot, which looked broken) in case the way clears, then back off and come
+    // at it from a new spot, with a fresh aim.
     if (linedUp && !barrelClear) {
       mem.blockedTicks++;
-      if (mem.blockedTicks >= ticks(cfg, cfg.aiStuckWindow)) return startRecovery(state, mem);
-      if (mem.blockedTicks % ticks(cfg, cfg.aiReactionDelay) === 0) mem.aimOffset = rollAimError(state);
+      if (mem.blockedTicks >= ticks(cfg, cfg.aiStuckWindow)) return startRecovery(state, tank, mem);
     } else if (barrelClear) {
       mem.blockedTicks = 0;
     }
 
     const throttle = range > ENGAGE_ADVANCE_DISTANCE && Math.abs(diff) < DRIVE_ANGLE ? 1 : 0;
     if (throttle === 0) mem.stuckTicks = 0;
-    else if (isStuck(state, tank, mem)) return startRecovery(state, mem);
+    else if (isStuck(state, tank, mem)) return startRecovery(state, tank, mem);
     return { throttle, turn, fire };
   }
 
@@ -196,18 +282,22 @@ function selectTarget(state: MatchState, tank: TankState, mem: AiMemory): TankSt
   mem.retargetTicks = ticks(cfg, cfg.aiRetargetInterval);
   let best: TankState | null = null;
   let bestScore = Infinity;
+  let bestVisible = false;
   for (const other of state.tanks) {
     if (!other.alive || !isEnemy(state, tank, other)) continue;
     const visible = lineOfSight(tank.x, tank.y, other.x, other.y, state.board.obstacles);
-    const score = (visible ? 0 : 1e6) + distance(tank.x, tank.y, other.x, other.y);
+    const score = (visible ? 0 : HIDDEN_TARGET_PENALTY) + distance(tank.x, tank.y, other.x, other.y);
     if (score < bestScore) {
       bestScore = score;
       best = other;
+      bestVisible = visible;
     }
   }
+  if (current && !bestVisible && mem.hiddenTicks < ticks(cfg, TARGET_GRACE_SECONDS)) return current;
   if (best?.id !== current?.id) {
     mem.targetId = best?.id ?? null;
     mem.seenTicks = 0;
+    mem.engaging = false;
     mem.hiddenTicks = 0;
     mem.path = [];
     mem.replanTicks = 0;
@@ -264,17 +354,24 @@ function navigate(
   // Skip waypoints we've already reached.
   while (mem.pathIndex < mem.path.length) {
     const wp = cellCenter(nav, mem.path[mem.pathIndex]!);
-    if (distance(tank.x, tank.y, wp.x, wp.y) > nav.cellSize * 0.75) break;
+    if (distance(tank.x, tank.y, wp.x, wp.y) > nav.cellSize * WAYPOINT_REACH) break;
     mem.pathIndex++;
   }
+  const arrived = mem.path.length > 0 && mem.pathIndex >= mem.path.length;
   const next = mem.pathIndex < mem.path.length ? cellCenter(nav, mem.path[mem.pathIndex]!) : target;
 
   const diff = angleDiff(tank.heading, Math.atan2(next.y - tank.y, next.x - tank.x));
-  const turn = Math.abs(diff) > halfTurnStep ? (diff > 0 ? 1 : -1) : 0;
+  let turn = Math.abs(diff) > halfTurnStep ? (diff > 0 ? 1 : -1) : 0;
+  // Arrived, but the shot from exactly where the tank stopped isn't quite clear (the goal was checked from its cell's
+  // centre). Face the target and wait there, rather than driving at it, leaving the cell and being sent back: round
+  // and round on the spot. If the shot never opens up, the progress watchdog moves it on.
+  if (arrived) return { throttle: 0, turn, fire: false };
+  if (turn === -mem.navTurn && Math.abs(diff) < NAV_REVERSE_ANGLE) turn = 0;
+  if (turn !== 0) mem.navTurn = turn;
   const throttle = Math.abs(diff) < DRIVE_ANGLE ? 1 : 0;
 
   // Only count time spent trying to drive; turning on the spot isn't being stuck.
-  if (throttle === 1 && isStuck(state, tank, mem)) return startRecovery(state, mem);
+  if (throttle === 1 && isStuck(state, tank, mem)) return startRecovery(state, tank, mem);
   return { throttle, turn, fire: false };
 }
 
@@ -294,19 +391,31 @@ function isStuck(state: MatchState, tank: TankState, mem: AiMemory): boolean {
   return distance(tank.x, tank.y, mem.stuckRefX, mem.stuckRefY) < cfg.aiStuckDistance;
 }
 
-/** Reverses and turns away for a moment, then plans and aims afresh. Returns this tick's input. */
-function startRecovery(state: MatchState, mem: AiMemory): TankInput {
+/**
+ * Reverses and turns away for a moment, then plans and aims afresh, steering clear of this spot for a while. Returns
+ * this tick's input.
+ */
+function startRecovery(state: MatchState, tank: TankState, mem: AiMemory): TankInput {
   mem.recoverTicks = ticks(state.config, state.config.aiRecoverDuration) - 1;
   mem.recoverTurn = nextFloat(state.aiRng) < 0.5 ? -1 : 1;
   mem.stuckTicks = 0;
   mem.blockedTicks = 0;
+  mem.progressTicks = 0;
+  mem.avoidX = tank.x;
+  mem.avoidY = tank.y;
+  mem.avoidTicks = ticks(state.config, AVOID_SECONDS);
+  mem.engaging = false;
   mem.path = [];
   mem.replanTicks = 0;
   mem.aimOffset = rollAimError(state);
   return { throttle: -1, turn: mem.recoverTurn, fire: false };
 }
 
-/** Plans a route to the nearest spot with a clear shot at the target, close enough to engage from. */
+/**
+ * Plans a route to the nearest spot with a clear shot at the target, close enough to engage from, or sticks with the
+ * spot it was already heading for while that still has a clear shot (a replan that flips the goal to the other side of
+ * an obstacle has a tank turning one way and then the other on the spot).
+ */
 function plan(state: MatchState, tank: TankState, target: TankState, mem: AiMemory): void {
   const nav = state.nav;
   const obstacles = state.board.obstacles;
@@ -320,15 +429,26 @@ function plan(state: MatchState, tank: TankState, target: TankState, mem: AiMemo
     const c = cellCenter(nav, cell);
     return (
       distance(c.x, c.y, target.x, target.y) <= maxRange &&
-      hasClearLane(c.x, c.y, target.x, target.y, obstacles, SHOT_LANE)
+      !avoiding(mem, c.x, c.y, nav.cellSize * WAYPOINT_REACH) &&
+      hasClearLane(c.x, c.y, target.x, target.y, obstacles, SHOT_LANE + GOAL_LANE_MARGIN)
     );
   };
-  let goal = findNearest(nav, start, (cell) => clearShotFrom(cell, ENGAGE_ADVANCE_DISTANCE));
+  const previous = mem.path.length > 0 ? mem.path[mem.path.length - 1]! : -1;
+  let goal = previous >= 0 && clearShotFrom(previous, ENGAGE_KEEP_DISTANCE) ? previous : -1;
+  if (goal < 0) goal = findNearest(nav, start, (cell) => clearShotFrom(cell, ENGAGE_ADVANCE_DISTANCE));
   if (goal < 0) goal = findNearest(nav, start, (cell) => clearShotFrom(cell, Infinity));
   if (goal < 0) goal = nearestWalkable(nav, cellAt(nav, target.x, target.y));
   const path = goal >= 0 ? findPath(nav, start, goal) : null;
   mem.path = path ?? [];
   mem.pathIndex = mem.path.length > 1 ? 1 : 0;
+}
+
+/**
+ * Whether (x, y) is too close to where this AI recently got stuck to settle there. Planning adds a margin, because a
+ * tank stops anywhere within reach of its goal and must not find itself inside the zone on arrival.
+ */
+function avoiding(mem: AiMemory, x: number, y: number, margin = 0): boolean {
+  return mem.avoidTicks > 0 && distance(x, y, mem.avoidX, mem.avoidY) < AVOID_RADIUS + margin;
 }
 
 function rollAimError(state: MatchState): number {

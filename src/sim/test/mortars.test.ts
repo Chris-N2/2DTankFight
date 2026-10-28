@@ -12,7 +12,7 @@ import {
   type SimEvent,
   type TankInput,
 } from '../src';
-import { hasClearLane, SHOT_LANE } from '../src/ai/think';
+import { createAiMemory, hasClearLane, SHOT_LANE, think } from '../src/ai/think';
 import {
   DT,
   R,
@@ -502,6 +502,35 @@ describe('ai: mortar use', () => {
     expect(landed[0]!.slowedIds).toContain('p1');
   });
 
+  test('A long lob is seen through', () => {
+    // The worst case: the target is near full range and the AI faces directly away, so turning round and charging
+    // takes longer than the progress window. Standing still that long would otherwise count as being stuck, and
+    // backing off would release the button early and drop the mortar short.
+    const board = makeBoard([{ x: 390, y: 0, w: 20, h: 600 }], 1200, 600);
+    const state = matchOn({ mode: 'lastOneStanding', aiCount: 1, rounds: 3, mortars: true }, board, 1);
+    state.phase = 'playing';
+    const target = place(state, 'p1', 60, 300, 0);
+    const ai = place(state, 'ai1', 655, 300, 0);
+    const mem = (state.ai['ai1'] = createAiMemory());
+    mem.targetId = 'p1';
+    mem.retargetTicks = 10 * cfg.tickRate;
+    mem.lob = { targetId: 'p1', x: target.x, y: target.y, range: ai.x - target.x, aimOffset: 0 };
+
+    const events: SimEvent[] = [];
+    let launchedAt = -1;
+    for (let i = 0; i < 5 * cfg.tickRate && launchedAt < 0; i++) {
+      const lobbing = mem.lob !== null;
+      const input = think(state, ai);
+      if (lobbing) expect(input.throttle, `tick ${i}`).not.toBe(-1); // no backing off mid-lob
+      const tickEvents = world(state, { ai1: input });
+      events.push(...tickEvents);
+      if (ofType(tickEvents, 'mortarLaunched').length > 0) launchedAt = i;
+    }
+    expect(launchedAt).toBeGreaterThan(Math.round(cfg.aiProgressWindow * cfg.tickRate));
+    const [landed] = ofType(untilLanded(state), 'mortarLanded');
+    expect(Math.hypot(landed!.x - target.x, landed!.y - target.y)).toBeLessThan(60);
+  });
+
   test('Patience', () => {
     const state = hidden();
     const patience = Math.round(cfg.aiMortarPatience * cfg.tickRate);
@@ -587,7 +616,7 @@ describe('ai: mortar use', () => {
       const state = matchOn(
         { mode: 'lastOneStanding', aiCount: 4, rounds: 1, mortars: true },
         PROVING_GROUND,
-        1, // a seed where an AI's target stays hidden long enough for a lob
+        5, // a seed where an AI's target stays hidden long enough for a lob (re-picked when AI movement changed)
       );
       const events: SimEvent[] = [];
       for (let i = 0; i < 60 * cfg.tickRate && state.phase !== 'gameOver'; i++) {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_CONFIG, step, type Board, type MatchState, type TankInput } from '../src';
+import { DEFAULT_CONFIG, RICOCHET_ALLEY, step, type Board, type MatchState, type TankInput } from '../src';
 import { think } from '../src/ai/think';
-import { lineOfSight } from '../src/geometry';
+import { angleDiff, lineOfSight } from '../src/geometry';
 import { buildNavGrid, cellAt, findPath } from '../src/nav';
 import {
   addShell,
@@ -132,6 +132,32 @@ describe('ai: target selection', () => {
     thinkPinned(state, 'ai1', RETARGET_TICKS + 1);
     expect(state.ai['ai1']!.targetId).toBe('p1');
   });
+
+  test('Sticks with a target that ducks out of sight', () => {
+    const wall = { x: 290, y: 200, w: 20, h: 200 };
+    const state = playing(makeBoard([wall]), 2);
+    place(state, 'ai1', 400, 300, Math.PI);
+    place(state, 'p1', 200, 40, 0); // in view, over the end of the wall
+    place(state, 'ai2', 250, 300, 0); // nearer, but behind the wall
+    thinkPinned(state, 'ai1', 1);
+    expect(state.ai['ai1']!.targetId).toBe('p1');
+
+    place(state, 'p1', 200, 300, 0); // ducks behind the wall too, a little farther away than ai2
+    thinkPinned(state, 'ai1', cfg.tickRate);
+    expect(state.ai['ai1']!.targetId).toBe('p1'); // still after it, through several retargets...
+    thinkPinned(state, 'ai1', 2 * cfg.tickRate);
+    expect(state.ai['ai1']!.targetId).toBe('ai2'); // ...until it has been out of sight a while
+  });
+
+  test("A distant tank in view doesn't pull it off a nearby hunt", () => {
+    const wall = { x: 290, y: 200, w: 20, h: 200 };
+    const state = playing(makeBoard([wall], 1200, 800), 2);
+    place(state, 'ai1', 400, 300, Math.PI);
+    place(state, 'p1', 250, 300, 0); // close, behind the wall
+    place(state, 'ai2', 1150, 750, 0); // in view, right across the board
+    thinkPinned(state, 'ai1', 1);
+    expect(state.ai['ai1']!.targetId).toBe('p1');
+  });
 });
 
 describe('ai: navigation', () => {
@@ -201,12 +227,27 @@ describe('ai: aiming and firing', () => {
     const ai = place(state, 'ai1', 400, 300, Math.PI);
     step(state, {});
     state.ai['ai1']!.aimOffset = cfg.aiAimError;
+    const mem = state.ai['ai1']!;
     let firedAt = -1;
+    let reversalsWhileBlocked = 0;
+    let reaimsWhileBlocked = 0;
+    let lastTurn = 0;
     for (let i = 0; i < 3 * cfg.tickRate && firedAt < 0; i++) {
       target.hp = cfg.tankMaxHp;
+      const heading = ai.heading;
+      const aim = mem.aimOffset;
+      const wasBlocked = mem.blockedTicks > 0;
       if (ofType(step(state, {}), 'shotFired').some((e) => e.tankId === 'ai1')) firedAt = i;
+      const turn = Math.sign(angleDiff(heading, ai.heading));
+      if (wasBlocked && mem.blockedTicks > 0) {
+        if (mem.aimOffset !== aim) reaimsWhileBlocked++;
+        if (turn !== 0 && lastTurn !== 0 && turn !== lastTurn) reversalsWhileBlocked++;
+        if (turn !== 0) lastTurn = turn;
+      }
     }
-    expect(firedAt).toBeGreaterThanOrEqual(0); // it re-aims (or repositions) rather than freezing
+    expect(reaimsWhileBlocked).toBe(0); // it holds its aim while it waits...
+    expect(reversalsWhileBlocked).toBe(0);
+    expect(firedAt).toBeGreaterThanOrEqual(0); // ...then repositions and fires, rather than freezing
     expect(ai.alive).toBe(true);
   });
 
@@ -346,10 +387,19 @@ describe('waves: AI tanks are allies', () => {
     expect(state.ai['ai1']!.targetId).toBe('p1');
     expect(inputs.some((i) => i.fire)).toBe(false);
 
-    // Once the ally moves out of the lane, the shot goes.
+    // Once the ally moves out of the lane, the shot goes. Having backed off while it waited, the AI steers clear of
+    // that spot for a while, so this time it's left free to drive and find another.
     place(state, 'ai2', 300, 500, Math.PI / 2);
-    const after = thinkPinned(state, 'ai1', 2 * cfg.tickRate);
-    expect(after.some((i) => i.fire)).toBe(true);
+    const ai = tank(state, 'ai1');
+    let fired = false;
+    for (let i = 0; i < 5 * cfg.tickRate && !fired; i++) {
+      tank(state, 'p1').hp = cfg.tankMaxHp;
+      const input = think(state, ai);
+      fired = input.fire;
+      world(state, { ai1: input });
+      place(state, 'ai2', 300, 500, Math.PI / 2);
+    }
+    expect(fired).toBe(true);
   });
 
   test("An ally in the way doesn't freeze the AI", () => {
@@ -399,5 +449,70 @@ describe('waves: AI tanks are allies', () => {
     for (let i = 0; i < 30; i++) later.push(...world(state));
     expect(ofType(later, 'hit')).toEqual([expect.objectContaining({ shooterId: 'ai1', targetId: 'ai2' })]);
     expect(ally.hp).toBe(ally.maxHp - 2 - cfg.shellDamage);
+  });
+});
+
+describe('ai: decisive movement', () => {
+  /**
+   * Found by simulation on Ricochet Alley: ai2 has parked just west of the upper bar's end, firing at a human camped in
+   * the top-left corner. ai1 wants to get past it, ends up nose-to-tail with it beside the corner, and used to sit there
+   * turning back and forth for over a minute.
+   */
+  function queuedAtCorner(): MatchState {
+    const state = playingWaves(RICOCHET_ALLEY, 2);
+    place(state, 'p1', 20, 19, 0);
+    place(state, 'ai1', 415, 237, Math.PI);
+    place(state, 'ai2', 377, 238, (-148 * Math.PI) / 180);
+    return state;
+  }
+
+  /** Plays the match with the human and ai2 held where they are; returns ai1's inputs. */
+  function playHeld(state: MatchState, seconds: number): TankInput[] {
+    const ai = tank(state, 'ai1');
+    const inputs: TankInput[] = [];
+    for (let i = 0; i < seconds * cfg.tickRate; i++) {
+      tank(state, 'p1').hp = cfg.tankMaxHp;
+      const input = think(state, ai);
+      inputs.push(input);
+      ai.fireHeld = input.fire;
+      world(state, { ai1: input });
+      place(state, 'p1', 20, 19, 0);
+      place(state, 'ai2', 377, 238, (-148 * Math.PI) / 180);
+    }
+    return inputs;
+  }
+
+  test('Steady at a corner', () => {
+    // Only the time at the corner, up to when it first backs off. After that it's queuing behind an ally that never
+    // moves, which can still look like jostling: that's for a later change (AI tanks spreading out).
+    const all = playHeld(queuedAtCorner(), 6);
+    const backsOff = all.findIndex((i) => i.throttle === -1);
+    expect(backsOff).toBeGreaterThan(cfg.tickRate);
+    const inputs = all.slice(0, backsOff);
+    for (let start = 0; start < inputs.length; start += cfg.tickRate) {
+      // Count swings: turns held for two ticks or more. A one-tick nudge is just keeping the aim on a moving target.
+      let reversals = 0;
+      let swing = 0;
+      let run = 0;
+      let runTurn = 0;
+      for (const { turn } of [...inputs.slice(start, start + cfg.tickRate), { turn: 0 }]) {
+        if (turn === runTurn) {
+          run++;
+          continue;
+        }
+        if (runTurn !== 0 && run >= 2) {
+          if (swing !== 0 && runTurn !== swing) reversals++;
+          swing = runTurn;
+        }
+        runTurn = turn;
+        run = 1;
+      }
+      expect(reversals, `second ${start / cfg.tickRate}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('Blocked by an ally', () => {
+    const inputs = playHeld(queuedAtCorner(), 3);
+    expect(inputs.some((i) => i.throttle === -1)).toBe(true); // it backs off rather than pushing on
   });
 });

@@ -90,6 +90,11 @@ export interface SimConfig {
   aiStuckDistance: number;
   /** How long an AI reverses and turns when it's stuck, seconds. */
   aiRecoverDuration: number;
+  /**
+   * An AI that neither moves `aiStuckDistance` nor fires for this long, whatever it's doing (other than lobbing),
+   * backs off and plans afresh, seconds.
+   */
+  aiProgressWindow: number;
 
   /** Navigation grid cell size in world units. */
   navCellSize: number;
@@ -147,6 +152,7 @@ export const DEFAULT_CONFIG: Readonly<SimConfig> = Object.freeze({
   aiStuckWindow: 1,
   aiStuckDistance: 10,
   aiRecoverDuration: 0.5,
+  aiProgressWindow: 1.5,
 
   navCellSize: 18,
   navMargin: 2,

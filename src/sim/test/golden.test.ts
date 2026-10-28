@@ -12,6 +12,8 @@ import { matchOn, type GameOptions } from './helpers';
 // Recorded before map selection was added. Map choice draws from its own random stream, so a one-map Proving Ground
 // game must still give every tank the same spawn point and play out identically. If this fails after a change that
 // deliberately alters gameplay, re-record the values; if it fails after a change to map selection, that's a bug.
+// Re-recorded for ai-steady-at-corners, which changed how AI tanks move, aim and pick targets (and so their random
+// draws). The spawns are unchanged; Last One Standing now plays four rounds in the scripted time, not five.
 
 function scripted(tick: number): TankInput {
   return {
@@ -80,9 +82,8 @@ describe('map selection: golden replay', () => {
         'p1@70,70 ai1@70,730 ai2@1130,70 ai3@600,760 ai4@1130,730',
         'p1@1130,730 ai1@70,730 ai2@70,70 ai3@600,760 ai4@1130,70',
         'p1@600,760 ai1@1130,730 ai2@70,70 ai3@70,730 ai4@1130,70',
-        'p1@600,760 ai1@70,730 ai2@1130,730 ai3@1130,70 ai4@70,70',
       ],
-      fingerprint: '5948ab96',
+      fingerprint: 'c9aa4c74',
     });
   });
 
@@ -104,7 +105,7 @@ describe('map selection: golden replay', () => {
         'p1@1130,730 ai1@1130,70 ai2@600,760 ai3@70,70 ai4@70,730',
         'p1@70,730 ai1@70,70 ai2@1130,730 ai3@600,760 ai4@1130,70',
       ],
-      fingerprint: '9316a16c',
+      fingerprint: 'bda10952',
     });
   });
 });
