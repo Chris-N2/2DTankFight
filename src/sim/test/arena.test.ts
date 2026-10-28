@@ -1,14 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import {
   BUILT_IN_BOARDS,
+  FRUSTRATION,
   NOWHERE_TO_HIDE,
   PAC_TANK,
   PROVING_GROUND,
+  RICOCHET_ALLEY,
   RUN_FOR_COVER,
   validateBoard,
   type Board,
 } from '../src';
 import { GRID, wallsFromGrid } from '../src/boards/grid';
+import { lineOfSight, sweepBounds, sweepRect } from '../src/geometry';
+import { buildNavGrid, cellAt, floodFill } from '../src/nav';
 import { cfg, finishRound, makeBoard, skipToPlay, tank, matchOn } from './helpers';
 
 const sixBlocks = [
@@ -79,13 +83,70 @@ describe('arena: board validity', () => {
   });
 });
 
+/**
+ * The spawn points that the tank starting at `spawns[i]` is aimed straight at: a ray along its heading passes within a
+ * tank's radius of them before reaching an obstacle or the boundary. Bounces are ignored: a bank shot isn't a free shot.
+ */
+function aimedAt(board: Board, i: number): number[] {
+  const from = board.spawns[i]!;
+  const ux = Math.cos(from.heading);
+  const uy = Math.sin(from.heading);
+  const far = board.width + board.height;
+  const [x1, y1] = [from.x + ux * far, from.y + uy * far];
+  let reach = sweepBounds(from.x, from.y, x1, y1, board.width, board.height)?.t ?? 1;
+  for (const rect of board.obstacles) {
+    const hit = sweepRect(from.x, from.y, x1, y1, rect);
+    if (hit && hit.t < reach) reach = hit.t;
+  }
+  reach *= far;
+  const aimed: number[] = [];
+  board.spawns.forEach((to, j) => {
+    if (j === i) return;
+    const along = (to.x - from.x) * ux + (to.y - from.y) * uy;
+    const across = Math.abs((to.x - from.x) * uy - (to.y - from.y) * ux);
+    if (along > 0 && along < reach && across < cfg.tankRadius) aimed.push(j);
+  });
+  return aimed;
+}
+
+/** Every pair of spawn points with nothing blocking the straight line between them, as "i-j". */
+function openLines(board: Board): string[] {
+  const open: string[] = [];
+  board.spawns.forEach((a, i) =>
+    board.spawns.forEach((b, j) => {
+      if (j > i && lineOfSight(a.x, a.y, b.x, b.y, board.obstacles)) open.push(`${i}-${j}`);
+    }),
+  );
+  return open;
+}
+
 describe('arena: built-in boards', () => {
-  test('Four boards available', () => {
+  test('No free first shot', () => {
+    const freeShots = BUILT_IN_BOARDS.flatMap((board) =>
+      board.spawns.flatMap((_, i) =>
+        aimedAt(board, i).map((j) => `${board.id}: spawn ${i} is aimed at spawn ${j}`),
+      ),
+    );
+    expect(freeShots).toEqual([]);
+  });
+
+  test('the free-first-shot check spots a spawn aimed down a clear lane', () => {
+    const board = makeBoard(sixBlocks);
+    board.spawns[0] = { x: 60, y: 60, heading: 0 }; // straight along the top at spawn 1
+    expect(aimedAt(board, 0)).toEqual([1]);
+    board.obstacles.push({ x: 400, y: 40, w: 20, h: 40 }); // a wall in between
+    expect(aimedAt(board, 0)).toEqual([]);
+  });
+
+  test('Seven boards available', () => {
     expect(BUILT_IN_BOARDS.map((b) => b.name)).toEqual([
       'Proving Ground',
       'Run For Cover',
       'Nowhere (Much) To Hide',
       'Pac-Tank',
+      'Frustration',
+      'Ricochet Alley',
+      'Checkerboard',
     ]);
   });
 
@@ -122,6 +183,56 @@ describe('arena: built-in boards', () => {
       for (const t of state.tanks)
         expect(t.y < centre.top || t.y > centre.bottom || t.x < centre.left || t.x > centre.right).toBe(true);
     }
+  });
+
+  test('Pac-Tank has room to spare', () => {
+    // The outer corridor is the 3-square ring round the maze; the corners are where its sides meet.
+    const ring = 3 * GRID;
+    const { width: W, height: H } = PAC_TANK;
+    const inCorner = (x: number, y: number) => (x < ring || x > W - ring) && (y < ring || y > H - ring);
+    const inside = (x: number, y: number) => x > ring && x < W - ring && y > ring && y < H - ring;
+    const spawns = PAC_TANK.spawns;
+    expect(spawns).toHaveLength(7);
+    expect(spawns.filter((s) => inCorner(s.x, s.y))).toHaveLength(4);
+    expect(spawns.filter((s) => s.x === W / 2 && s.y === H / 2)).toHaveLength(1);
+    expect(spawns.filter((s) => inside(s.x, s.y) && !(s.x === W / 2 && s.y === H / 2))).toHaveLength(2);
+  });
+
+  test("Frustration's outer strips are sealed", () => {
+    // The ring runs one square in from the outer strips, three squares from the edge. Plug its four gaps: if the
+    // outer spawns are then cut off from each other, every route between them went through the inside of the ring.
+    const ring = { left: 3 * GRID, right: 26 * GRID, top: 3 * GRID, bottom: 16 * GRID };
+    const plugs = [
+      { x: 13 * GRID, y: ring.top, w: 4 * GRID, h: GRID },
+      { x: 13 * GRID, y: ring.bottom, w: 4 * GRID, h: GRID },
+      { x: ring.left, y: 8 * GRID, w: GRID, h: 4 * GRID },
+      { x: ring.right, y: 8 * GRID, w: GRID, h: 4 * GRID },
+    ];
+    const outer = FRUSTRATION.spawns.filter(
+      (s) => s.x < ring.left || s.x > ring.right + GRID || s.y < ring.top || s.y > ring.bottom + GRID,
+    );
+    expect(outer).toHaveLength(4);
+    const open = buildNavGrid(FRUSTRATION, cfg);
+    const plugged = buildNavGrid({ ...FRUSTRATION, obstacles: [...FRUSTRATION.obstacles, ...plugs] }, cfg);
+    for (const s of outer) {
+      expect(floodFill(open, cellAt(open, s.x, s.y)).size).toBeGreaterThan(0);
+      const strip = floodFill(plugged, cellAt(plugged, s.x, s.y));
+      const others = outer.filter((o) => o !== s && strip.has(cellAt(plugged, o.x, o.y)));
+      expect(others).toEqual([]);
+    }
+  });
+
+  test('No straight line between spawns on Frustration', () => {
+    expect(openLines(FRUSTRATION)).toEqual([]);
+  });
+
+  test('No straight line between spawns on Ricochet Alley', () => {
+    expect(openLines(RICOCHET_ALLEY)).toEqual([]);
+  });
+
+  test('the straight-line check finds open lines where there are some', () => {
+    // Run For Cover's top corners look at each other along the top edge.
+    expect(openLines(RUN_FOR_COVER)).toContain('0-1');
   });
 
   test('Nowhere (Much) To Hide gives every spawn a barrier nearby', () => {

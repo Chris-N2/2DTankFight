@@ -119,6 +119,24 @@ A few things to know:
 - **Warnings:** a bad value or an unknown setting is skipped with a warning in the browser console, and the game still
   starts. So does a floor colour that would make tanks or shells hard to see.
 
+## Making a board
+
+Boards are plain data in `src/sim/src/boards/`. Making a valid one is quick; making a fun one takes playtesting.
+
+1. **Draw it.** Copy `frustration.ts` or `pacTank.ts`: the board is an ASCII picture, 30 characters by 20 rows, where
+   each character is one 40-unit square (about one tank) and `#` is wall. `wallsFromGrid` turns the picture into wall
+   rectangles. Keep driving corridors at least 3 squares wide.
+2. **Add spawn points**: at least 5, each with a position and a heading (the direction the tank faces at the start).
+   Give the board a unique `id` (lower-case words joined by hyphens) and a `name`.
+3. **Register it** by adding it to `BUILT_IN_BOARDS` in `src/sim/src/boards/index.ts`. The map picker, the thumbnails
+   and Random mode pick it up from there.
+4. **Run `npm test`.** The tests check every built-in board against the arena rules:
+   - at least 6 obstacles;
+   - room for a tank at every spawn, and at least 250 units between spawns;
+   - every spawn can drive to every other (nothing sealed off);
+   - no free first shot: no spawn starts aimed straight at another with nothing in between.
+5. **Playtest it** with a one-map Sequence, in both game modes. Then playtest it some more.
+
 ## Scripts
 
 | Command | What it does |

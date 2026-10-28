@@ -108,8 +108,9 @@ player to join (multiplayer).
 
 ## Boards
 
-- A set of **hand-made boards**: Proving Ground, Run For Cover, Nowhere (Much) To Hide and Pac-Tank so far. Each
-  round or wave can be on a different board.
+- A set of seven **hand-made boards**: Proving Ground, Run For Cover, Nowhere (Much) To Hide, Pac-Tank, Frustration,
+  Ricochet Alley and Checkerboard. Each round or wave can be on a different board. Most are fast; Frustration is
+  slower on purpose, and Ricochet Alley is built for bank shots. No board starts a tank aimed at another spawn.
 - The host picks the **map mode**, for either game mode:
   - **Random** (the default): every board is played once, in a shuffled order, before any repeats, and never the same
     board twice in a row.
@@ -118,13 +119,12 @@ player to join (multiplayer).
     map", which is also the quick way to playtest a board.
 - Boards are 1200 × 800, laid out on a **40-unit design grid** (one square is about one tank). Driving corridors are at
   least 3 squares wide. A maze can be drawn as an ASCII picture (see `pacTank.ts`).
-- Next boards to try: Frustration, Ricochet Alley and Checkerboard, with The Keep as a maybe. Wraparound edges are
-  parked: every system would need to know about the seam.
+- The Keep (a walled central fortress) is a maybe for later; it was too close to Pac-Tank and Frustration. Wraparound
+  edges are parked: every system would need to know about the seam.
 - User-made boards (e.g. JSON files) are out of scope for now. Boards are already plain data, so it may not be hard later.
-- A random board generator may be added later. Generated boards must satisfy:
-  - a minimum number of obstacles to hide behind,
-  - connectivity (no sealed-off areas or trapped spawns),
-  - fair spawn spacing.
+- A random board generator was considered and **dropped**: lots of pitfalls (a valid board isn't necessarily a fun
+  one) for little gain in a small project with seven boards that play well. Hand-making a board is easy; the README
+  explains how.
 
 ## Assets (graphics/audio)
 
@@ -150,8 +150,8 @@ Suggested change sequence:
 4. Arena theme & hosting (replaces tank selection: see *Tanks*)
 5. Board variety:
    1. map selection (Random / Sequence) and the first new boards (Run For Cover, Nowhere (Much) To Hide, Pac-Tank);
-   2. more boards after playtesting (Frustration, Ricochet Alley, Checkerboard; maybe The Keep);
-   3. the optional generator.
+   2. more boards after playtesting (Frustration, Ricochet Alley, Checkerboard), plus spawn fixes for Pac-Tank and
+      Run For Cover. (A third step, a random board generator, was dropped: see *Boards*.)
 6. Multiplayer (room codes, authoritative server, prediction, disconnect handling)
 
 ### QA feedback loop

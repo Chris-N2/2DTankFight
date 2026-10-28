@@ -50,13 +50,16 @@ export const PAC_TANK: Board = {
   width: W,
   height: H,
   obstacles: wallsFromGrid(MAZE),
-  // The four corners, facing into the maze rather than along the outer corridor at each other, and the sheltered
-  // gap in the middle.
+  // The four corners, facing into the maze rather than along the outer corridor at each other; the sheltered gap in
+  // the middle; and one in each inner corridor, facing along it. Each corner can see both its neighbours, so the
+  // inner spawns are there to make a corner pile-up rarer, and to leave a corner free even when the board is full.
   spawns: [
     spawnAt(1, 1),
     spawnAt(28, 1),
     spawnAt(1, 18),
     spawnAt(28, 18),
     { x: W / 2, y: H / 2, heading: -Math.PI / 2 },
+    { ...spawnAt(8, 7), heading: 0 },
+    { ...spawnAt(21, 12), heading: Math.PI },
   ],
 };

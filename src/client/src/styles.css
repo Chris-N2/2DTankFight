@@ -211,6 +211,15 @@ button:focus-visible {
   flex-wrap: wrap;
 }
 
+/* Four cards to a row, so each thumbnail has room to be full size; a short last row is centred. */
+.choices.map-library {
+  justify-content: center;
+}
+
+.choices.map-library .map-card {
+  flex: 0 0 calc((100% - 3 * 6px) / 4);
+}
+
 .choices .map-card {
   flex: 1 1 0;
   min-width: 0;
@@ -225,7 +234,8 @@ button:focus-visible {
 
 .map-card canvas {
   width: 96px;
-  height: 64px;
+  height: auto;
+  aspect-ratio: 3 / 2;
   max-width: 100%;
   border-radius: 3px;
 }

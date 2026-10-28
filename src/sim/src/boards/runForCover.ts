@@ -49,8 +49,9 @@ export const RUN_FOR_COVER: Board = {
     { x: W - 70, y: 70, heading: towardsCentre(W - 70, 70) },
     { x: 70, y: H - 70, heading: towardsCentre(70, H - 70) },
     { x: W - 70, y: H - 70, heading: towardsCentre(W - 70, H - 70) },
-    // Behind the centre blocks, facing along the edge rather than into the block.
-    { x: W / 2, y: 60, heading: 0 },
-    { x: W / 2, y: H - 60, heading: Math.PI },
+    // Behind the centre blocks, facing into the block. Facing along the edge would aim straight down the clear top or
+    // bottom lane at a corner spawn: a free first shot.
+    { x: W / 2, y: 60, heading: towardsCentre(W / 2, 60) },
+    { x: W / 2, y: H - 60, heading: towardsCentre(W / 2, H - 60) },
   ],
 };

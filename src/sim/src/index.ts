@@ -15,4 +15,13 @@ export { mortarLanding, mortarRange } from './mortar';
 export { evaluateGame, evaluateRound } from './rules/lastOneStanding';
 export { waveSetup, type WaveSetup } from './rules/waves';
 export { validateBoard, type BoardValidation } from './validate';
-export { BUILT_IN_BOARDS, NOWHERE_TO_HIDE, PAC_TANK, PROVING_GROUND, RUN_FOR_COVER } from './boards';
+export {
+  BUILT_IN_BOARDS,
+  CHECKERBOARD,
+  FRUSTRATION,
+  NOWHERE_TO_HIDE,
+  PAC_TANK,
+  PROVING_GROUND,
+  RICOCHET_ALLEY,
+  RUN_FOR_COVER,
+} from './boards';
