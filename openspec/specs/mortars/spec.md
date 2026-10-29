@@ -99,9 +99,10 @@ the configured splash radius of the landing point SHALL be slowed, **including t
 Obstacles SHALL NOT shield a tank from the splash. The splash SHALL do no damage.
 
 While slowed, a tank's forward and reverse driving speeds SHALL be multiplied by the configured slow factor for the
-configured slow duration. Its turning, firing and mortar SHALL be unaffected. A slowed tank caught by another splash
-SHALL have its slow restarted at the full duration. Slows SHALL NOT stack to make the tank slower. Slows SHALL be
-cleared when a round or wave starts.
+configured slow duration. Its turning and mortar SHALL be unaffected. Its firing SHALL be unaffected too, unless the
+game mode's rules say that the mud jams that tank's turret (see the `waves` spec); a jammed turret SHALL NOT fire for
+exactly as long as the tank is slowed. A slowed tank caught by another splash SHALL have its slow restarted at the
+full duration. Slows SHALL NOT stack to make the tank slower. Slows SHALL be cleared when a round or wave starts.
 
 #### Scenario: Bogged down
 - **WHEN** a mortar lands within the splash radius of a tank
@@ -112,7 +113,7 @@ cleared when a round or wave starts.
 - **THEN** the tank's hit points are unchanged
 
 #### Scenario: Turning and firing unaffected
-- **WHEN** a slowed tank turns and fires
+- **WHEN** a slowed tank whose turret the game mode does not jam turns and fires
 - **THEN** it turns at its normal rate and fires at its normal rate
 
 #### Scenario: Caught in your own splash
@@ -134,3 +135,7 @@ cleared when a round or wave starts.
 #### Scenario: Fresh start each round
 - **WHEN** a round or wave begins while a tank is slowed
 - **THEN** the tank starts the new round or wave at its normal speed and no mortars are in flight
+
+#### Scenario: Last One Standing keeps every turret
+- **WHEN** in Last One Standing a mortar slows an AI tank and a human tank, and both press fire while slowed
+- **THEN** both fire as normal
