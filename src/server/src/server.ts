@@ -78,6 +78,8 @@ export function startServer(config: ServerConfig, options: ServerOptions = {}): 
   const wss = new WebSocketServer({
     server: http,
     maxPayload: MAX_MESSAGE_BYTES,
+    // No per-message compression: App Service on Linux advises against it for Node, and messages are small anyway.
+    perMessageDeflate: false,
     verifyClient: (info: { origin: string }, done: (ok: boolean, code?: number, reason?: string) => void) =>
       allowed === null || allowed.includes(info.origin) ? done(true) : done(false, 403, 'Origin not allowed'),
   });

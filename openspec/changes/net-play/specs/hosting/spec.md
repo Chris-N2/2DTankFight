@@ -28,7 +28,7 @@ other query parameters, SHALL be kept.
 `npm run build:server` SHALL produce a folder that contains the whole multiplayer server in one JavaScript file, plus
 a `package.json` whose start script runs it, with no other dependencies to install. Zipping that folder SHALL be
 enough to deploy the server to a Node hosting platform such as an Azure App Service. The README SHALL describe:
-- deploying the server with Zip Deploy and the App Service settings it needs (WebSockets on, Always On, a single
+- deploying the server with Zip Deploy and the App Service settings it needs (Always On, a single
   instance, and `ALLOWED_ORIGINS`);
 - running it with Docker;
 - running it locally for development and LAN play.

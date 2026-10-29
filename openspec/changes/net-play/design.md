@@ -228,7 +228,8 @@ The join link is `new URL(location.href)` with `join=<code>` set. After joining,
 - App Service settings:
   - runtime stack Node 22 LTS;
   - startup command `npm start`;
-  - `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, WebSockets On, Always On, one instance;
+  - `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, Always On, one instance (WebSockets are always on for Linux apps:
+    there's no setting, so the Windows-only `webSocketsEnabled` doesn't apply);
   - `ALLOWED_ORIGINS` set to the page origin(s);
   - `PORT` is provided by the platform.
 

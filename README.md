@@ -192,7 +192,7 @@ Compress-Archive -Path dist/server/server.js, dist/server/package.json -Destinat
 
 $rg = "my-resource-group"; $plan = "my-linux-plan"; $app = "my-tank-server"
 az webapp create --resource-group $rg --plan $plan --name $app --runtime "NODE:22-lts"
-az webapp config set --resource-group $rg --name $app --web-sockets-enabled true --always-on true --startup-file "npm start"
+az webapp config set --resource-group $rg --name $app --always-on true --startup-file "npm start"
 az webapp config appsettings set --resource-group $rg --name $app --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ALLOWED_ORIGINS=https://example.com
 az webapp deploy --resource-group $rg --name $app --src-path dist/tank-server.zip --type zip
 ```
@@ -201,7 +201,8 @@ The first three `az` lines are one-off set-up. After that, a new version is just
 The server is then at `wss://` plus the Web App's *Default domain* (shown on its *Overview* page): usually
 `<app>.azurewebsites.net`, or something like `<app>-a1b2c3d4.uksouth-01.azurewebsites.net` if the app has a unique
 default hostname. That address is what goes in the page's meta tag. App Service provides
-`PORT` itself. WebSockets and Always On must both be on (Always On needs a Basic plan or above), and the plan should
+`PORT` itself. Always On must be on (it needs a Basic plan or above); WebSockets are always on for Linux apps, with
+no setting to change. The plan should
 run a single instance. Optionally, point the Web App's health check at `/health`.
 
 **In the Azure portal instead:** the same set-up, by hand. Build and zip on your machine as above, then:
@@ -211,8 +212,9 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    basic authentication off included: Cloud Shell deploys with your Azure sign-in, not a publishing password.
 2. **Add the app settings.** In the new Web App: *Settings* → *Environment variables*. Add
    `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false` and `ALLOWED_ORIGINS` = your page origin(s), then *Apply*.
-3. **Switch on what it needs.** *Settings* → *Configuration* → *General settings*: Startup Command `npm start`,
-   Web sockets *On*, Always on *On*. *Save*.
+3. **Set how it starts, and keep it running.** *Settings* → *Configuration*. On the *Stack settings* tab, set the
+   Startup command to `npm start`. On the *General settings* tab, set Always on to *On*. *Save*. (There's no
+   Web sockets switch to look for: Linux apps always have them on.)
 4. **Upload the zip.** The portal's drag-and-drop Zip Deploy page (in Kudu) doesn't work for Linux apps, so use
    **Cloud Shell**, which is already signed in as you: the `>_` button at the top of the portal. Upload
    `tank-server.zip` with *Manage files* → *Upload*, then run:
