@@ -1,0 +1,15 @@
+# Only the sources and the lock file are needed to build the server image.
+**/node_modules
+**/dist
+coverage
+.git
+.claude
+.serena
+.vscode
+.idea
+openspec
+*.md
+*.log
+.env
+.env.*
+src/client/public/theme.json

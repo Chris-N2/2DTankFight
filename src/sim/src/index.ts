@@ -13,6 +13,7 @@ export {
   sequenceLimit,
   validateOptions,
 } from './options';
+export { botInput } from './ai/bot';
 export { cloneState, createMatch, leave, step } from './match';
 export { mortarLanding, mortarRange } from './mortar';
 export { evaluateGame, evaluateRound } from './rules/lastOneStanding';

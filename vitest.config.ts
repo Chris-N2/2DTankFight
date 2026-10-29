@@ -13,8 +13,24 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'protocol',
+          root: './src/protocol',
+          include: ['test/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        test: {
           name: 'client',
           root: './src/client',
+          include: ['test/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        test: {
+          name: 'server',
+          root: './src/server',
           include: ['test/**/*.test.ts'],
           environment: 'node',
         },

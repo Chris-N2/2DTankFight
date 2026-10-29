@@ -12,11 +12,11 @@ import {
   type SimEvent,
   type WaveChange,
 } from '@tank/sim';
+import { FixedStepLoop } from '@tank/protocol';
 import { browserStorage, recordBest } from './best';
 import { Effects } from './effects';
 import { inputFromGamepad, isActive, MenuInput, type GamepadSnapshot, type MenuAction } from './gamepad';
 import { combineInputs, FireLatch, GAME_KEYS, KeyboardState, menuActionForKey } from './input';
-import { FixedStepLoop } from './loop';
 import { mountStage, type StageId } from './markup';
 import { colorOf, Renderer, snapshot, type Snapshot } from './renderer';
 import {

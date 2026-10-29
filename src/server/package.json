@@ -1,0 +1,20 @@
+{
+  "name": "@tank/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional multiplayer server: rooms, the authoritative simulation and WebSockets.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "node scripts/dev.mjs"
+  },
+  "dependencies": {
+    "@tank/protocol": "0.1.0",
+    "@tank/sim": "0.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.12"
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { FixedStepLoop } from '../src/loop';
+import { FixedStepLoop } from '../src';
 
 const STEP = 1000 / 60;
 

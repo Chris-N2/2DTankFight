@@ -7,16 +7,20 @@
   "type": "module",
   "workspaces": [
     "src/sim",
-    "src/client"
+    "src/protocol",
+    "src/client",
+    "src/server"
   ],
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "npm run dev -w @tank/client",
+    "dev:server": "npm run dev -w @tank/server",
     "build": "npm run build -w @tank/client",
+    "build:server": "npm run build -w @tank/server",
     "preview": "npm run preview -w @tank/client",
-    "typecheck": "tsc -p src/sim --noEmit && tsc -p src/client --noEmit && tsc -p src/client/test --noEmit",
+    "typecheck": "tsc -p src/sim --noEmit && tsc -p src/protocol --noEmit && tsc -p src/client --noEmit && tsc -p src/client/test --noEmit && tsc -p src/server --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

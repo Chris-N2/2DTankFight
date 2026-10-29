@@ -8,45 +8,45 @@ Suggested sessions, each ending somewhere checkable:
 
 ## 1. Foundations
 
-- [ ] 1.1 Create the `src/protocol` workspace (`@tank/protocol`), with tsconfig, a vitest project and lint coverage,
+- [x] 1.1 Create the `src/protocol` workspace (`@tank/protocol`), with tsconfig, a vitest project and lint coverage,
   and move `FixedStepLoop` and its tests into it from the client. Verify: `npm run typecheck` and `npm test` pass, and
   the client still runs its loop from the new package.
-- [ ] 1.2 In `@tank/protocol`, define every message type from the design, a parser that validates each message from
+- [x] 1.2 In `@tank/protocol`, define every message type from the design, a parser that validates each message from
   either side (wrong types become idle or refused, unknown messages are dropped), the snapshot cut from a `MatchState`,
   and the room-code alphabet. Verify: unit tests for parsing good and bad messages, and that a snapshot holds exactly
   the dynamic fields and every event in order.
-- [ ] 1.3 Add `botInput(state, id)` to the sim: it drives a human tank with `think()`, with the other human hidden.
+- [x] 1.3 Add `botInput(state, id)` to the sim: it drives a human tank with `think()`, with the other human hidden.
   Verify: a test that the bot never targets the other human, and that a two-player soak with a bot ends waves.
 
 ## 2. Server rooms (pure, fake clock)
 
-- [ ] 2.1 `Room` creation with option validation, codes, the room cap and case-insensitive lookup. Verify: tests for
+- [x] 2.1 `Room` creation with option validation, codes, the room cap and case-insensitive lookup. Verify: tests for
   *A room is created*, *Invalid options refused*, *Server busy* and *Codes ignore case*.
-- [ ] 2.2 Joining, seats and tokens. Verify: tests for *Joining a lobby*, *Unknown code*, *Room already full*,
+- [x] 2.2 Joining, seats and tokens. Verify: tests for *Joining a lobby*, *Unknown code*, *Room already full*,
   *Refresh mid-lobby* and *Wrong token*.
-- [ ] 2.3 Lobby behaviour. Verify: tests for *Host changes options*, *No start without a guest*, *Guest leaves the
+- [x] 2.3 Lobby behaviour. Verify: tests for *Host changes options*, *No start without a guest*, *Guest leaves the
   lobby*, *Idle lobby expires*, and the host's lobby grace closing the room.
-- [ ] 2.4 Ticking, inputs and snapshots: the per-room accumulator, the press latches, 30 Hz snapshots carrying every
+- [x] 2.4 Ticking, inputs and snapshots: the per-room accumulator, the press latches, 30 Hz snapshots carrying every
   event, and the board on change. Verify: tests for *Controls only*, *Garbage in*, *A quick tap still fires*, *Holding
   keeps holding*, *Nothing missed between snapshots* and *New board, sent once*.
-- [ ] 2.5 Start, play again and back to the lobby. Verify: tests for *Play again keeps the room* and *Back to the
+- [x] 2.5 Start, play again and back to the lobby. Verify: tests for *Play again keeps the room* and *Back to the
   lobby*, and that each game gets a fresh seed.
-- [ ] 2.6 Grace, freeze, resume and expiry, including both players dropping and drops after the game. Verify: tests
+- [x] 2.6 Grace, freeze, resume and expiry, including both players dropping and drops after the game. Verify: tests
   for *Freeze and resume*, *Out of time in Last One Standing*, *Out of time in Waves* and *Frozen means frozen*.
-- [ ] 2.7 Leaving on purpose, and the test bot. Verify: tests for *Leaving Last One Standing*, *Playing the bot* and
+- [x] 2.7 Leaving on purpose, and the test bot. Verify: tests for *Leaving Last One Standing*, *Playing the bot* and
   *Bot switched off*.
 
 ## 3. Server shell
 
-- [ ] 3.1 Configuration from environment variables, with start-up validation and the open-origins warning. Verify:
+- [x] 3.1 Configuration from environment variables, with start-up validation and the open-origins warning. Verify:
   tests for *Bad setting* and the defaults.
-- [ ] 3.2 HTTP server with `/health`, a `ws` server with the origin check, the payload cap and ping-based drop
+- [x] 3.2 HTTP server with `/health`, a `ws` server with the origin check, the payload cap and ping-based drop
   detection, and the global ticker wiring sockets to rooms. Verify: in-process integration tests with real `ws`
   clients for *Healthy*, *Unknown site refused*, a full host-join-start-play-finish game, and a drop-and-rejoin.
-- [ ] 3.3 `build:server` (one bundled `server.js` plus its `package.json`) and `dev:server` (watch and restart).
+- [x] 3.3 `build:server` (one bundled `server.js` plus its `package.json`) and `dev:server` (watch and restart).
   Verify: *Nothing else to install*, by starting the built folder from a temporary directory with no `node_modules`
   and getting `/health`.
-- [ ] 3.4 Dockerfile and `.dockerignore`. Verify: *Running the container*, if Docker is available on the machine;
+- [x] 3.4 Dockerfile and `.dockerignore`. Verify: *Running the container*, if Docker is available on the machine;
   otherwise mark it for the developer's manual check.
 
 ## 4. Client: online core

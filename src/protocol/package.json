@@ -1,0 +1,14 @@
+{
+  "name": "@tank/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What client and server say to each other: message types, validation, the snapshot cut and the fixed-step loop.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tank/sim": "0.1.0"
+  }
+}

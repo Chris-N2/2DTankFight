@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // No "DOM" lib: the protocol is shared by the browser client and the Node server.
+    "lib": ["ES2022"]
+  },
+  "include": ["src", "test"]
+}

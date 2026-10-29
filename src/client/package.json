@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tank/protocol": "0.1.0",
     "@tank/sim": "0.1.0"
   }
 }
