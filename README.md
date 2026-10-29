@@ -170,7 +170,7 @@ variable.
 | Variable | What it does | Default |
 |---|---|---|
 | `PORT` | The port to listen on | `8080` |
-| `ALLOWED_ORIGINS` | Comma-separated page origins whose players may connect, such as `https://example.com`. Set it on a public server. | unset: any page, with a warning |
+| `ALLOWED_ORIGINS` | Comma-separated origins of the sites whose players may connect. Set it on a public server. An origin is just the site's root, not the page the game is on: for `https://www.example.com/games/tank-command/` it's `https://www.example.com`. | unset: any page, with a warning |
 | `MAX_ROOMS` | Rooms open at once; a host asking for one more is told the server is busy | `10` |
 | `GRACE_SECONDS` | How long a dropped player's seat is kept | `15` |
 | `LOBBY_IDLE_MINUTES` | How long a room may wait without a game starting before it closes | `30` |
@@ -211,7 +211,9 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    Operating system: *Linux*. Choose your existing Linux App Service plan. The other settings can stay as they are,
    basic authentication off included: Cloud Shell deploys with your Azure sign-in, not a publishing password.
 2. **Add the app settings.** In the new Web App: *Settings* → *Environment variables*. Add
-   `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false` and `ALLOWED_ORIGINS` = your page origin(s), then *Apply*.
+   `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false` and `ALLOWED_ORIGINS` = your site's origin, then *Apply*. That's
+   `https://` and the host name only, such as `https://www.example.com`, not the address of the page with the game on
+   it. Separate more than one with commas.
 3. **Set how it starts, and keep it running.** *Settings* → *Configuration*. On the *Stack settings* tab, set the
    Startup command to `npm start`. On the *General settings* tab, set Always on to *On*. *Save*. (There's no
    Web sockets switch to look for: Linux apps always have them on.)
@@ -224,6 +226,11 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    ```
 
 5. **Check it.** `https://<default domain>/health` should say `"status":"ok"`.
+
+   A **503** there means the server didn't start. To see why, turn on *Monitoring* → *App Service logs* →
+   *Application logging* (*File system*), then watch *Monitoring* → *Log stream*. A setting the server can't use
+   stops it at start-up, with a message saying which one and how to fix it. Fix it in *Environment variables*; the
+   app restarts when you *Apply*.
 
 For a new version, repeat steps 4 and 5 with a fresh build. (The portal's menu names move around from time to time;
 the settings they lead to don't.)

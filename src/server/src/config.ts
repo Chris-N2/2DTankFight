@@ -87,19 +87,34 @@ function onOff(raw: string): boolean | undefined {
   return undefined;
 }
 
-/** Each entry must be an origin and nothing more: a scheme, a host and perhaps a port, without a path. */
+/**
+ * Each entry must be an origin and nothing more: a scheme, a host and perhaps a port, without a path. The two easy
+ * mistakes (the address of the page the game is on, or a host without `https://`) are named, with the fix.
+ */
 function origins(raw: string): string[] | undefined {
   const list = raw
     .split(',')
     .map((o) => o.trim())
     .filter((o) => o !== '');
   const parsed = list.map((o) => {
+    let url: URL;
     try {
-      const origin = new URL(o).origin;
-      return origin !== 'null' && origin === o.replace(/\/$/, '') ? origin : undefined;
+      url = new URL(o);
     } catch {
+      if (/^[\w-]+(\.[\w-]+)+(:\d+)?\/?$/.test(o)) {
+        throw new Error(
+          `ALLOWED_ORIGINS is invalid: "${o}" needs its scheme, as in https://${o.replace(/\/$/, '')}.`,
+        );
+      }
       return undefined;
     }
+    if (url.origin === 'null') return undefined;
+    if (url.origin !== o.replace(/\/$/, '')) {
+      throw new Error(
+        `ALLOWED_ORIGINS is invalid: "${o}" is a page address. An origin is just the site's root: use ${url.origin}.`,
+      );
+    }
+    return url.origin;
   });
   return list.length > 0 && parsed.every((o) => o !== undefined) ? (parsed as string[]) : undefined;
 }

@@ -66,4 +66,15 @@ describe('game server: configuration', () => {
       }
     }
   });
+
+  test('the easy origin mistakes are named, with the fix', () => {
+    expect(readConfig({ ALLOWED_ORIGINS: 'https://www.example.com/games/tank-command/' })).toEqual({
+      error:
+        'ALLOWED_ORIGINS is invalid: "https://www.example.com/games/tank-command/" is a page address. ' +
+        "An origin is just the site's root: use https://www.example.com.",
+    });
+    expect(readConfig({ ALLOWED_ORIGINS: 'https://a.example, www.example.com' })).toEqual({
+      error: 'ALLOWED_ORIGINS is invalid: "www.example.com" needs its scheme, as in https://www.example.com.',
+    });
+  });
 });
