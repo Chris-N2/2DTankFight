@@ -198,14 +198,17 @@ az webapp deploy --resource-group $rg --name $app --src-path dist/tank-server.zi
 ```
 
 The first three `az` lines are one-off set-up. After that, a new version is just the build, the zip and the last line.
-The server is then at `wss://<app>.azurewebsites.net`, which is what goes in the page's meta tag. App Service provides
+The server is then at `wss://` plus the Web App's *Default domain* (shown on its *Overview* page): usually
+`<app>.azurewebsites.net`, or something like `<app>-a1b2c3d4.uksouth-01.azurewebsites.net` if the app has a unique
+default hostname. That address is what goes in the page's meta tag. App Service provides
 `PORT` itself. WebSockets and Always On must both be on (Always On needs a Basic plan or above), and the plan should
 run a single instance. Optionally, point the Web App's health check at `/health`.
 
 **In the Azure portal instead:** the same set-up, by hand. Build and zip on your machine as above, then:
 
 1. **Create the Web App.** *Create a resource* → *Web App*. Publish: *Code*. Runtime stack: *Node 22 LTS*.
-   Operating system: *Linux*. Choose your existing Linux App Service plan.
+   Operating system: *Linux*. Choose your existing Linux App Service plan. The other settings can stay as they are,
+   basic authentication off included: Cloud Shell deploys with your Azure sign-in, not a publishing password.
 2. **Add the app settings.** In the new Web App: *Settings* → *Environment variables*. Add
    `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false` and `ALLOWED_ORIGINS` = your page origin(s), then *Apply*.
 3. **Switch on what it needs.** *Settings* → *Configuration* → *General settings*: Startup Command `npm start`,
@@ -218,7 +221,7 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    az webapp deploy --resource-group <your-resource-group> --name <your-app> --src-path tank-server.zip --type zip
    ```
 
-5. **Check it.** `https://<your-app>.azurewebsites.net/health` should say `"status":"ok"`.
+5. **Check it.** `https://<default domain>/health` should say `"status":"ok"`.
 
 For a new version, repeat steps 4 and 5 with a fresh build. (The portal's menu names move around from time to time;
 the settings they lead to don't.)
