@@ -97,6 +97,16 @@ describe('game client: hosting and the lobby', () => {
   });
 });
 
+describe('game client: a second trip online', () => {
+  test('a new session’s first game takes over the screen, whatever game the last session got to', () => {
+    // Each session counts its games from 1; the page must forget the count from the session before.
+    const begin = method('beginOnline');
+    expect(begin).toContain('this.seenGameId = 0;');
+    expect(begin.indexOf('this.seenGameId = 0;')).toBeLessThan(begin.indexOf('this.renderOnline();'));
+    expect(method('onlineFrame')).toContain('if (session.gameId !== this.seenGameId) {');
+  });
+});
+
 describe('game client: online games don’t pause', () => {
   test('Escape doesn’t stop the game: it opens the online menu, and nothing pauses', () => {
     const keys = method('onKeyDown');

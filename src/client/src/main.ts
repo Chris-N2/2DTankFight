@@ -696,6 +696,8 @@ class Game {
 
   private beginOnline(session: OnlineSession): void {
     this.session = session;
+    // Each session counts its games from 1, so a new one mustn't look like a game already on screen.
+    this.seenGameId = 0;
     this.setNotice(null);
     this.renderOnline();
   }

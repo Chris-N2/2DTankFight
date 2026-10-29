@@ -185,8 +185,9 @@ the same consequences as a grace period running out.
 
 ### Requirement: Test bot
 When the server's test-bot setting is on, a host waiting in the lobby SHALL be able to fill the second seat with a
-bot, which starts the game at once. The bot is driven by the same brain as the AI tanks, treats only AI tanks as its
-enemies, and uses no network connection, so it never drops. The room SHALL otherwise behave as any other, including
+bot, which starts the game at once. The bot is driven by the same brain as the AI tanks and uses no network
+connection, so it never drops. In Waves it is the host's team-mate and treats only AI tanks as its enemies. In Last One
+Standing, where it's every tank for itself, it fights every tank, the host included. The room SHALL otherwise behave as any other, including
 playing again, and going back to the lobby frees the bot's seat. The server SHALL tell clients whether the bot is
 available. When the setting is off (the default), the server SHALL refuse a bot.
 
@@ -194,6 +195,10 @@ available. When the setting is off (the default), the server SHALL refuse a bot.
 - **WHEN** the test bot is enabled and a host in the lobby asks for the bot
 - **THEN** a two-player game starts with the host as the first human and the bot as the second, driving and shooting
   at the AI tanks
+
+#### Scenario: The bot fights the host in Last One Standing
+- **WHEN** a Last One Standing round against the bot is down to the host and the bot
+- **THEN** the bot goes after the host, as an AI tank would
 
 #### Scenario: Bot switched off
 - **WHEN** the test bot is not enabled and a host asks for the bot

@@ -14,9 +14,9 @@ const TWO_LOS: GameOptions = { mode: 'lastOneStanding', aiCount: 3, rounds: 3, m
 const TWO_WAVES: GameOptions = { mode: 'waves', startAiCount: 1, mortars: true, humans: 2 };
 
 describe('test bot', () => {
-  test('never targets the other human, and never shoots them on purpose', () => {
+  test('in Waves, never targets the other human, and never shoots them on purpose', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
-      const state = matchOn(TWO_LOS, makeBoard(), seed);
+      const state = matchOn({ ...TWO_WAVES, startAiCount: 3 }, makeBoard(), seed);
       // p1 sits still in the open: the easiest target there is, if the bot could see it.
       for (let i = 0; i < 60 * cfg.tickRate && state.phase !== 'gameOver'; i++) {
         const events = step(state, { p2: botInput(state, 'p2') });
@@ -30,6 +30,22 @@ describe('test bot', () => {
           }
         }
       }
+    }
+  });
+
+  test('in Last One Standing, fights the other human too: down to the two of them, it goes after the host', () => {
+    for (const seed of [1, 2, 3]) {
+      const state = matchOn(TWO_LOS, makeBoard(), seed);
+      state.phase = 'playing';
+      retire(state, 'ai1', 'ai2', 'ai3');
+      const shotAtHost: SimEvent[] = [];
+      for (let i = 0; i < 30 * cfg.tickRate && state.phase === 'playing'; i++) {
+        for (const e of step(state, { p2: botInput(state, 'p2') })) {
+          if (e.type === 'hit' && e.shooterId === 'p2' && e.targetId === 'p1') shotAtHost.push(e);
+        }
+      }
+      expect(state.ai['p2']?.targetId ?? 'p1', `seed ${seed}`).toBe('p1');
+      expect(shotAtHost.length, `seed ${seed}`).toBeGreaterThan(0);
     }
   });
 

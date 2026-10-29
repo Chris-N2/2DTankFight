@@ -161,8 +161,10 @@ Single-player passes `p1` and is unchanged.
 ### The bot is a seat with no socket
 
 `Room.addBot()` fills `p2` with a seat marked as a bot. Each tick, the bot's input comes from a new sim export,
-`botInput(state, id)`: it runs `think()` for that tank, with the other human hidden from it (as the soak test does),
-so the bot fights only the AI.
+`botInput(state, id)`: it runs `think()` for that tank. In Waves the other human is hidden from it (as the soak test
+does), so the bot fights only the AI, as a team-mate. In Last One Standing nothing is hidden, so it fights everyone, as
+the AI tanks do. (At first it was hidden in both modes, which left the bot standing still once only the host and the bot
+were left: found in the first playtest.)
 
 The bot seat never disconnects. Going back to the lobby frees it.
 
