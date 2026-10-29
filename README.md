@@ -244,6 +244,10 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    stops it at start-up, with a message saying which one and how to fix it. Fix it in *Environment variables*; the
    app restarts when you *Apply*.
 
+   If `/health` is fine but the game says the online server isn't available, the page's origin is probably missing
+   from `ALLOWED_ORIGINS`. Browsers don't tell a page why a connection was refused, so a page the server won't talk
+   to looks just like a server that's down.
+
 For a new version, repeat steps 4 and 5 with a fresh build. (The portal's menu names move around from time to time;
 the settings they lead to don't.)
 
