@@ -202,6 +202,27 @@ The server is then at `wss://<app>.azurewebsites.net`, which is what goes in the
 `PORT` itself. WebSockets and Always On must both be on (Always On needs a Basic plan or above), and the plan should
 run a single instance. Optionally, point the Web App's health check at `/health`.
 
+**In the Azure portal instead:** the same set-up, by hand. Build and zip on your machine as above, then:
+
+1. **Create the Web App.** *Create a resource* → *Web App*. Publish: *Code*. Runtime stack: *Node 22 LTS*.
+   Operating system: *Linux*. Choose your existing Linux App Service plan.
+2. **Add the app settings.** In the new Web App: *Settings* → *Environment variables*. Add
+   `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false` and `ALLOWED_ORIGINS` = your page origin(s), then *Apply*.
+3. **Switch on what it needs.** *Settings* → *Configuration* → *General settings*: Startup Command `npm start`,
+   Web sockets *On*, Always on *On*. *Save*.
+4. **Upload the zip.** The portal's drag-and-drop Zip Deploy page (in Kudu) doesn't work for Linux apps, so use
+   **Cloud Shell**, which is already signed in as you: the `>_` button at the top of the portal. Upload
+   `tank-server.zip` with *Manage files* → *Upload*, then run:
+
+   ```sh
+   az webapp deploy --resource-group <your-resource-group> --name <your-app> --src-path tank-server.zip --type zip
+   ```
+
+5. **Check it.** `https://<your-app>.azurewebsites.net/health` should say `"status":"ok"`.
+
+For a new version, repeat steps 4 and 5 with a fresh build. (The portal's menu names move around from time to time;
+the settings they lead to don't.)
+
 ### With Docker
 
 The `Dockerfile` builds the same server into a small image:
