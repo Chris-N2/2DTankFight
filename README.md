@@ -84,16 +84,27 @@ such as an Umbraco template or a CMS page type, needs just these lines. The game
 does on its own page.
 
 ```html
-<head>
-  <link rel="stylesheet" href="/tank-command/assets/tank-command.css?v=1" />
-  <!-- Optional: a theme file somewhere other than beside the game -->
-  <meta name="tank-command-theme" content="/css/tank-command-theme.json" />
-</head>
-<body>
-  <div id="tank-command"></div>
-  <script type="module" src="/tank-command/assets/tank-command.js?v=1"></script>
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2-D Tank Command</title>
+    <link rel="stylesheet" href="/tank-command/assets/tank-command.css?v=1" />
+    <!-- Optional: a theme file somewhere other than beside the game -->
+    <meta name="tank-command-theme" content="/css/tank-command-theme.json" />
+    <!-- Optional: online play (see Hosting the multiplayer server) -->
+    <meta name="tank-command-server" content="wss://tank-server.example.net" />
+  </head>
+  <body>
+    <div id="tank-command"></div>
+    <script type="module" src="/tank-command/assets/tank-command.js?v=1"></script>
+  </body>
+</html>
 ```
+
+Keep the `<!doctype html>`: without it, browsers lay the page out in "quirks mode", and the game may not fill the
+window properly.
 
 Because the file names stay the same, browsers may keep an old copy after you deploy a new version. Bump the `?v=`
 number when you do.
@@ -159,7 +170,8 @@ Name the server on the page with one more `<meta>` tag (on `index.html`, or your
 ```
 
 Join links point back at the page the game is on, with the room code added, so a guest lands on your page and your
-theme. For online play, put the game on a page of its own rather than in an `<iframe>`: a join link made inside a
+theme. They copy whatever address the host had open, so if your site answers both with and without `www`, list both
+origins in `ALLOWED_ORIGINS`. For online play, put the game on a page of its own rather than in an `<iframe>`: a join link made inside a
 frame points at the frame's address, not your page.
 
 ### Settings
