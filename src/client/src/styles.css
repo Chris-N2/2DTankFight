@@ -382,3 +382,94 @@ kbd {
 .go-best:empty {
   display: none;
 }
+
+/* Online play: the lobby (the setup panel with a room on top), the join dialog, the online menu and the freeze. */
+.online-buttons {
+  margin-top: 8px;
+}
+
+.online-buttons:not(:has(button:not(.hidden))) {
+  display: none;
+}
+
+.lobby {
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px dashed var(--t-wall-edge);
+  border-radius: 8px;
+}
+
+.lobby-room {
+  margin: 0;
+  color: var(--t-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lobby-code {
+  display: block;
+  margin: 2px 0 8px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--t-accent);
+}
+
+.choices.lobby-link-row {
+  align-items: stretch;
+}
+
+.lobby-link,
+.join-code {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--t-ink);
+  background: var(--t-key);
+  border: 2px solid var(--t-wall-edge);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.join-code {
+  display: block;
+  width: 8ch;
+  margin: 12px auto 0;
+  font-size: 32px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+}
+
+.lobby-status {
+  margin: 10px 0 0;
+  color: var(--t-ink);
+}
+
+.lobby-note,
+.online-notice {
+  margin: 10px 0 0;
+  color: var(--t-wall);
+}
+
+.go-wait {
+  margin: 14px 0 0;
+  color: var(--t-muted);
+}
+
+/* The guest's view of the options: on show, not for changing. */
+#setup.read-only .choices:not(.lobby-link-row) button {
+  pointer-events: none;
+}
+
+#setup.read-only .choices button:not([aria-checked='true']) {
+  opacity: 0.45;
+}
+
+.freeze {
+  pointer-events: none;
+}
+
+.overlay-light {
+  background: rgba(8, 10, 6, 0.25);
+}

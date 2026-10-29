@@ -15,6 +15,7 @@ interface Effect {
 }
 
 const SPARK_COLOR = '#ffe9a8';
+const CLANG_COLOR = '#c8d4e0';
 const FLASH_COLOR = '#fff4c2';
 const HIT_FLASH_MS = 120;
 const LAUNCH_COLOR = '#d9d2bf';
@@ -48,6 +49,10 @@ export class Effects {
       case 'shellDestroyed':
         this.push('spark', event.x, event.y, now, 160, 4, SPARK_COLOR);
         break;
+      case 'friendlyHit':
+        // Friendly fire is off: a harmless clang, a small ricochet with no hit flash.
+        this.push('spark', event.x, event.y, now, 180, 5, CLANG_COLOR);
+        break;
       case 'hit':
         this.push('ring', event.x, event.y, now, 260, 8, SPARK_COLOR);
         this.flashUntil.set(event.targetId, now + HIT_FLASH_MS);
@@ -63,6 +68,11 @@ export class Effects {
   /** True while a tank should be drawn flashing from a hit. */
   isFlashing(tankId: string, now: number): boolean {
     return (this.flashUntil.get(tankId) ?? 0) > now;
+  }
+
+  /** The kinds of effect showing, oldest first (for tests). */
+  kinds(): string[] {
+    return this.effects.map((e) => e.kind);
   }
 
   clear(): void {

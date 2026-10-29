@@ -51,36 +51,36 @@ Suggested sessions, each ending somewhere checkable:
 
 ## 4. Client: online core
 
-- [ ] 4.1 Server address from `<meta name="tank-command-server">`, or the Vite dev default; no connection at all
+- [x] 4.1 Server address from `<meta name="tank-command-server">`, or the Vite dev default; no connection at all
   without one. Verify: tests for *Static as ever* and *Turning online play on* (address resolution and that no socket
   is opened).
-- [ ] 4.2 `net.ts`: the connection, the reconnect loop with backoff, the per-tab seat store, rejoin on load, and the
+- [x] 4.2 `net.ts`: the connection, the reconnect loop with backoff, the per-tab seat store, rejoin on load, and the
   input sender with heartbeat. Verify: unit tests with a fake socket for reconnect timing, rejoin-before-join and input
   change/heartbeat sending.
-- [ ] 4.3 `online.ts`: the mirror `MatchState`, the snapshot buffer and 100 ms interpolation, events played in order,
+- [x] 4.3 `online.ts`: the mirror `MatchState`, the snapshot buffer and 100 ms interpolation, events played in order,
   holding on underrun and jumping when far behind. Verify: unit tests for each.
-- [ ] 4.4 Perspective colours and the viewer's own data: `colorOf`, the "YOU" ring, HP, mortar and score helpers take
+- [x] 4.4 Perspective colours and the viewer's own data: `colorOf`, the "YOU" ring, HP, mortar and score helpers take
   the viewer's seat. Add the `friendlyHit` ricochet effect. Verify: tests for *Green for me, blue for you*, *Shared AI
   colours*, *The other human is blue*, *A harmless clang* and *Your own numbers online*; single-player screen tests
   unchanged.
 
 ## 5. Client: online screens
 
-- [ ] 5.1 Setup screen "Host online game" and "Join a game" (shown only with a server), the join-code dialog, and
+- [x] 5.1 Setup screen "Host online game" and "Join a game" (shown only with a server), the join-code dialog, and
   join links. Verify: tests for *Online only with a server*, *Joining by code*, *A link to the same page*, and that the
   `join` parameter is removed after joining.
-- [ ] 5.2 Host and guest lobbies: code, link and copy; options editable for the host and read-only for the guest;
+- [x] 5.2 Host and guest lobbies: code, link and copy; options editable for the host and read-only for the guest;
   two-player limits and the "lowered to 3" note; the friendly-fire row; Start only with a guest; the bot option when
   offered; leaving. All usable by mouse, keyboard and gamepad. Verify: tests for *Hosting*, *Four AI won't fit*,
   *Friendly fire offered for Waves*, *Practice against the bot*, *No bot unless the server offers one*, *Options change
   under the guest*, *Can't start alone* and *The host leaves*.
-- [ ] 5.3 Online play loop: rendering from the mirror, no pause, the online menu with "Leave game", and the freeze
+- [x] 5.3 Online play loop: rendering from the mirror, no pause, the online menu with "Leave game", and the freeze
   overlay with countdown and 3-2-1. Verify: tests for *Escape doesn't stop the game*, *Leaving deliberately*, *Online
   games don't pause*, *A blip* and *Reload to rejoin* (client logic, with a fake connection).
-- [ ] 5.4 Online round banners, HUD and result screens from each player's point of view, including forfeit and the
+- [x] 5.4 Online round banners, HUD and result screens from each player's point of view, including forfeit and the
   AI ribbing; no bests online; host and guest result choices. Verify: tests for *One screen's win is the other's loss*,
   *The AI cleaned up*, *Forfeit spelled out*, *No online bests*, *Rematch*, *The guest heads off* and *Gone for good*.
-- [ ] 5.5 Server trouble: messages for unreachable servers and refused joins, back to setup with single-player
+- [x] 5.5 Server trouble: messages for unreachable servers and refused joins, back to setup with single-player
   intact. Verify: tests for *Server down* and *Wrong code*.
 
 ## 6. Docs

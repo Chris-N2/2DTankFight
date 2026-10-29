@@ -25,6 +25,8 @@ export interface SetupChoices {
   maps: MapMode;
   /** Board ids in the order they'll be played, when `maps` is `sequence`. Kept while Random is chosen, too. */
   sequence: string[];
+  /** Whether one human's shells can hurt the other: online Waves only. */
+  friendlyFire: boolean;
 }
 
 export type MapMode = 'random' | 'sequence';
@@ -37,6 +39,7 @@ export const DEFAULT_CHOICES: Readonly<SetupChoices> = {
   mortars: true,
   maps: 'random',
   sequence: [],
+  friendlyFire: false,
 };
 
 /** The match options for the setup screen's choices: the selected mode's options, plus mortars and maps. */
@@ -103,8 +106,15 @@ export interface GameOverText {
   quip: string;
 }
 
-export function scoreLine(scores: Scores): string {
-  return `You ${scores.humans[HUMAN_ID] ?? 0} – ${scores.ai} AI`;
+/**
+ * The score from the point of view of the player in seat `viewer`: against the AI in single-player, and against the
+ * other human when there are two ("You N – M Them"), since the AI's rounds score for nobody.
+ */
+export function scoreLine(scores: Scores, viewer: string = HUMAN_ID): string {
+  const mine = scores.humans[viewer] ?? 0;
+  const others = Object.keys(scores.humans).filter((id) => id !== viewer);
+  if (others.length === 0) return `You ${mine} – ${scores.ai} AI`;
+  return `You ${mine} – ${scores.humans[others[0]!] ?? 0} Them`;
 }
 
 const ROUND_TITLES: Record<RoundOutcome, string> = {
@@ -112,6 +122,20 @@ const ROUND_TITLES: Record<RoundOutcome, string> = {
   ai: 'Round lost',
   draw: 'Mutual destruction!',
 };
+
+/** How a two-human round went, for the player in seat `viewer`. */
+function twoPlayerRoundTitle(state: MatchState, viewer: string): string {
+  const scorers = state.lastRoundScorers;
+  switch (state.lastRoundOutcome) {
+    case 'human':
+      if (scorers.length > 1) return 'Point shared!';
+      return scorers.includes(viewer) ? 'Round won!' : 'They took the round';
+    case 'ai':
+      return 'The AI took the round';
+    default:
+      return 'Nobody scored';
+  }
+}
 
 /** How each escalation step is announced in the countdown banner. */
 const CHANGE_TEXT: Record<WaveChange, string> = {
@@ -125,13 +149,15 @@ const CHANGE_TEXT: Record<WaveChange, string> = {
 /**
  * What the centre banner should say right now, or null for nothing.
  * `showGo` is true briefly after play starts; `selfInflicted` is true if the human's own shell finished them off.
- * `changes` are the escalation steps the current wave applied (Waves only).
+ * `changes` are the escalation steps the current wave applied (Waves only). `viewer` is the seat of the player
+ * looking at the screen.
  */
 export function bannerFor(
   state: MatchState,
   showGo: boolean,
   selfInflicted: boolean,
   changes: readonly WaveChange[] = [],
+  viewer: string = HUMAN_ID,
 ): BannerText | null {
   const waves = state.options.mode === 'waves';
   switch (state.phase) {
@@ -148,6 +174,11 @@ export function bannerFor(
     case 'roundOver': {
       if (waves) return { title: `Wave ${state.round} cleared!`, sub: `Wave ${state.round + 1} incoming…` };
       const outcome = state.lastRoundOutcome ?? 'draw';
+      if (Object.keys(state.scores.humans).length > 1) {
+        const quip =
+          selfInflicted && !state.lastRoundScorers.includes(viewer) ? ' · Hoisted by your own shell!' : '';
+        return { title: twoPlayerRoundTitle(state, viewer), sub: scoreLine(state.scores, viewer) + quip };
+      }
       const quip = outcome === 'ai' && selfInflicted ? ' · Hoisted by your own shell!' : '';
       return { title: ROUND_TITLES[outcome], sub: scoreLine(state.scores) + quip };
     }
@@ -192,18 +223,18 @@ function wavesQuip(cleared: number, isNew: boolean, selfInflicted: boolean): str
   return 'They had more armour, bigger guns and faster shells. You had grit.';
 }
 
-/** Armour pips for the HUD, e.g. "■■□" for 2 of 3 hit points. */
-export function hpPips(state: MatchState): string {
-  const you = state.tanks.find((t) => t.id === HUMAN_ID);
+/** Armour pips for the HUD, e.g. "■■□" for 2 of 3 hit points: the viewer's own. */
+export function hpPips(state: MatchState, viewer: string = HUMAN_ID): string {
+  const you = state.tanks.find((t) => t.id === viewer);
   const hp = you?.alive ? Math.max(0, you.hp) : 0;
   const max = you?.maxHp ?? state.config.tankMaxHp;
   return '■'.repeat(hp) + '□'.repeat(Math.max(0, max - hp));
 }
 
 /** The HUD's mortar cell: ready, aiming or used; null when mortars are off, so the cell is hidden. */
-export function mortarHud(state: MatchState): string | null {
+export function mortarHud(state: MatchState, viewer: string = HUMAN_ID): string | null {
   if (!state.options.mortars) return null;
-  const you = state.tanks.find((t) => t.id === HUMAN_ID);
+  const you = state.tanks.find((t) => t.id === viewer);
   if (you?.alive && you.mortarCharge >= 0) return 'Aiming…';
   return you?.alive && you.mortars > 0 ? 'Ready' : 'Used';
 }
@@ -215,9 +246,9 @@ export function roundLine(state: MatchState): string {
 }
 
 /** The HUD's score cell: the score in Last One Standing, waves cleared in Waves. */
-export function hudScore(state: MatchState): string {
+export function hudScore(state: MatchState, viewer: string = HUMAN_ID): string {
   if (state.waves) return `Cleared ${state.waves.cleared}`;
-  return scoreLine(state.scores);
+  return scoreLine(state.scores, viewer);
 }
 
 function roundsOf(state: MatchState): number {

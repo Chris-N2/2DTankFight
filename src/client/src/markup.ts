@@ -7,23 +7,52 @@ export const STAGE_IDS = [
   'banner',
   'banner-sub',
   'banner-title',
+  'freeze',
+  'freeze-sub',
+  'freeze-title',
   'game',
   'gameover',
   'go-best',
+  'go-leave',
   'go-quip',
   'go-score',
   'go-title',
+  'go-wait',
+  'host-online',
   'hud',
   'hud-hp',
   'hud-mortar',
   'hud-mortar-cell',
   'hud-round',
   'hud-score',
+  'join',
+  'join-cancel',
+  'join-code',
+  'join-error',
+  'join-go',
+  'join-online',
+  'lobby',
+  'lobby-bot',
+  'lobby-code',
+  'lobby-copy',
+  'lobby-leave',
+  'lobby-link',
+  'lobby-note',
+  'lobby-status',
   'map-count',
   'map-library',
   'map-picker',
   'map-sequence',
+  'menu-back',
+  'menu-confirm',
+  'menu-leave',
+  'menu-main',
+  'menu-no',
+  'menu-yes',
+  'online-menu',
+  'online-notice',
   'opt-ai',
+  'opt-ff',
   'opt-maps',
   'opt-mode',
   'opt-mortars',
@@ -83,6 +112,15 @@ export const STAGE_HTML = `
     <div class="panel">
       <h1>2-D Tank Command</h1>
       <p id="tagline" class="tagline"></p>
+      <div id="lobby" class="lobby hidden">
+        <p class="lobby-room">Room <span id="lobby-code" class="lobby-code"></span></p>
+        <div class="choices lobby-link-row">
+          <input id="lobby-link" class="lobby-link" readonly aria-label="Join link" />
+          <button id="lobby-copy" type="button">Copy link</button>
+        </div>
+        <p id="lobby-status" class="lobby-status" aria-live="polite"></p>
+        <p id="lobby-note" class="lobby-note hidden" role="status"></p>
+      </div>
       <div class="option">
         <span class="option-label">Mode</span>
         <div class="choices" id="opt-mode" role="radiogroup" aria-label="Mode"></div>
@@ -98,6 +136,10 @@ export const STAGE_HTML = `
       <div class="option" data-mode="waves">
         <span class="option-label">Starting AI tanks</span>
         <div class="choices" id="opt-start-ai" role="radiogroup" aria-label="Starting AI tanks"></div>
+      </div>
+      <div class="option hidden" data-mode="waves" data-online>
+        <span class="option-label">Friendly fire</span>
+        <div class="choices" id="opt-ff" role="radiogroup" aria-label="Friendly fire"></div>
       </div>
       <div class="option">
         <span class="option-label">Mortars</span>
@@ -118,7 +160,14 @@ export const STAGE_HTML = `
         </div>
       </div>
       <p id="setup-problem" class="setup-problem hidden" role="alert"></p>
+      <p id="online-notice" class="online-notice hidden" role="alert"></p>
       <button id="start" class="primary">Start</button>
+      <div class="buttons online-buttons">
+        <button id="host-online" class="hidden">Host online game</button>
+        <button id="join-online" class="hidden">Join a game</button>
+        <button id="lobby-bot" class="hidden">Play the test bot</button>
+        <button id="lobby-leave" class="hidden">Leave</button>
+      </div>
       <table class="controls">
         <thead>
           <tr>
@@ -173,9 +222,58 @@ export const STAGE_HTML = `
       <p id="go-score" class="go-score"></p>
       <p id="go-best" class="go-best"></p>
       <p id="go-quip" class="hint"></p>
+      <p id="go-wait" class="go-wait hidden" aria-live="polite"></p>
       <div class="buttons">
         <button id="again" class="primary">Play again</button>
         <button id="settings">Change settings</button>
+        <button id="go-leave" class="hidden">Leave room</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="freeze" class="banner freeze hidden" aria-live="assertive">
+    <div id="freeze-title" class="banner-title"></div>
+    <div id="freeze-sub" class="banner-sub"></div>
+  </div>
+
+  <div id="online-menu" class="overlay overlay-light hidden">
+    <div class="panel">
+      <div id="menu-main">
+        <h2>Game on</h2>
+        <p>Online games don't pause: the game keeps going while this is open.</p>
+        <div class="buttons">
+          <button id="menu-back" class="primary">Back to the game</button>
+          <button id="menu-leave">Leave game</button>
+        </div>
+      </div>
+      <div id="menu-confirm" class="hidden">
+        <h2>Leave the game?</h2>
+        <p>There's no coming back to this one. In Last One Standing, it hands the other player the win.</p>
+        <div class="buttons">
+          <button id="menu-no" class="primary">Stay and fight</button>
+          <button id="menu-yes">Yes, leave</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="join" class="overlay hidden">
+    <div class="panel">
+      <h2>Join a game</h2>
+      <p>Type the code the host gave you.</p>
+      <input
+        id="join-code"
+        class="join-code"
+        maxlength="4"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        aria-label="Room code"
+      />
+      <p id="join-error" class="setup-problem hidden" role="alert"></p>
+      <div class="buttons">
+        <button id="join-go" class="primary">Join</button>
+        <button id="join-cancel">Cancel</button>
       </div>
     </div>
   </div>

@@ -37,9 +37,15 @@ describe('setup: map picker wiring', () => {
   test('Empty sequence can’t start: every way of starting is refused while setup has a problem', () => {
     const start = /private start\(\): void \{\s*(?:\/\/[^\n]*\n\s*)*([^\n]*)/.exec(main)?.[1];
     expect(start).toBe('if (setupProblem(this.choices)) return;');
-    // The Start and Play again buttons, Enter, and the gamepad's Start button all go through start().
-    const starts = [...main.matchAll(/this\.start\(\)|el\('start'\)\.click\(\)/g)].length;
-    expect(starts).toBe(4);
+    // The Start button, Enter and the gamepad's Start button go through startPressed(), which starts a local game
+    // with start() or, for an online host, asks the server, after the same check.
+    const pressed = /private startPressed\(\): void \{([\s\S]*?)\n {2}\}/.exec(main)?.[1] ?? '';
+    expect(pressed).toContain('if (!setupProblem(this.choices)) this.session.start();');
+    expect(pressed).toContain('this.start();');
+    expect(main).toContain("el('start').addEventListener('click', () => this.startPressed());");
+    expect([...main.matchAll(/this\.startPressed\(\)/g)]).toHaveLength(2); // the button and Enter
+    // Play again (locally), the gamepad's Start (which clicks the button) and startPressed itself.
+    expect([...main.matchAll(/this\.start\(\)|el\('start'\)\.click\(\)/g)]).toHaveLength(3);
     expect([...main.matchAll(/createMatch\(/g)]).toHaveLength(1);
   });
 

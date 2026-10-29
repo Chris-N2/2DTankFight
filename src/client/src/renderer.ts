@@ -6,7 +6,7 @@ import {
   type MortarState,
   type TankState,
 } from '@tank/sim';
-import { PALETTE, SHELL } from './colours';
+import { PALETTE, SHELL, viewerColourIndex } from './colours';
 import type { Effects } from './effects';
 import { THEME_DEFAULTS, type Theme } from './theme';
 
@@ -120,9 +120,10 @@ export function mortarPose(
   };
 }
 
-export function colorOf(state: MatchState, id: string): string {
+/** A tank's colour on the screen of the player in seat `viewer`: each player sees themselves green. */
+export function colorOf(state: MatchState, id: string, viewer: string = HUMAN_ID): string {
   const tank = state.tanks.find((t) => t.id === id);
-  return PALETTE[(tank?.colorIndex ?? 0) % PALETTE.length]!;
+  return PALETTE[viewerColourIndex(tank?.colorIndex ?? 0, viewer) % PALETTE.length]!;
 }
 
 export class Renderer {
@@ -132,6 +133,8 @@ export class Renderer {
   private offsetY = 0;
   private dpr = 1;
   private colours: ArenaColours = arenaColours(THEME_DEFAULTS);
+  /** The seat of the player looking at this screen: their tank is green, with the "YOU" ring and label. */
+  viewer: string = HUMAN_ID;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -203,7 +206,7 @@ export class Renderer {
       if (!tank.alive) continue;
       const { x, y, heading } = tankPose(tank, prev, alpha);
       this.drawTank(state, tank, x, y, heading, effects.isFlashing(tank.id, now), now);
-      if (tank.id === HUMAN_ID && tank.mortarCharge >= 0) this.drawReticle(state, tank, x, y, heading);
+      if (tank.id === this.viewer && tank.mortarCharge >= 0) this.drawReticle(state, tank, x, y, heading);
     }
 
     effects.draw(ctx, now);
@@ -216,7 +219,7 @@ export class Renderer {
   private drawReticle(state: MatchState, tank: TankState, x: number, y: number, heading: number): void {
     const ctx = this.ctx;
     const at = mortarLanding(state, { ...tank, x, y, heading }, tank.mortarCharge);
-    const color = colorOf(state, tank.id);
+    const color = colorOf(state, tank.id, this.viewer);
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
@@ -246,7 +249,7 @@ export class Renderer {
   private drawLandingMarker(state: MatchState, mortar: MortarState): void {
     const ctx = this.ctx;
     ctx.save();
-    ctx.strokeStyle = colorOf(state, mortar.ownerId);
+    ctx.strokeStyle = colorOf(state, mortar.ownerId, this.viewer);
     ctx.globalAlpha = 0.4;
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 6]);
@@ -332,8 +335,8 @@ export class Renderer {
     now: number,
   ): void {
     const ctx = this.ctx;
-    const color = flashing ? '#ffffff' : colorOf(state, tank.id);
-    const isYou = tank.id === HUMAN_ID;
+    const color = flashing ? '#ffffff' : colorOf(state, tank.id, this.viewer);
+    const isYou = tank.id === this.viewer;
 
     if (isYou) {
       // A gently pulsing ring under your tank, so you can always find yourself.
