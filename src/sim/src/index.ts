@@ -5,12 +5,15 @@ export { createRng, type RngState } from './rng';
 export {
   AI_COUNT_MAX,
   AI_COUNT_MIN,
+  aiCountMax,
+  humansOf,
+  MAX_TANKS,
   ROUND_CHOICES,
   SEQUENCE_MAX,
   sequenceLimit,
   validateOptions,
 } from './options';
-export { cloneState, createMatch, step } from './match';
+export { cloneState, createMatch, leave, step } from './match';
 export { mortarLanding, mortarRange } from './mortar';
 export { evaluateGame, evaluateRound } from './rules/lastOneStanding';
 export { waveSetup, type WaveSetup } from './rules/waves';

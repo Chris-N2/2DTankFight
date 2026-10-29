@@ -9,9 +9,12 @@ import {
   wrapAngle,
 } from './geometry';
 import { chargeMortars, flyMortars } from './mortar';
+import { friendlyFireOn } from './options';
 import { turretJammed } from './tank';
 import {
+  HUMAN_ID,
   IDLE_INPUT,
+  SECOND_HUMAN_ID,
   type InputMap,
   type MatchState,
   type ShellState,
@@ -169,6 +172,20 @@ function fire(
 }
 
 /**
+ * Whether this shell touching this tank is one human's shell reaching the other with friendly fire off. A human's
+ * own bounced shell is never friendly, and AI shells never are.
+ */
+function isFriendlyHit(state: MatchState, shell: ShellState, target: TankState): boolean {
+  if (target.kind !== 'human' || target.id === shell.ownerId || friendlyFireOn(state.options)) return false;
+  return isHumanId(shell.ownerId);
+}
+
+/** Humans' ids; a shell's owner may have no tank any more, so this doesn't look the tank up. */
+function isHumanId(id: string): boolean {
+  return id === HUMAN_ID || id === SECOND_HUMAN_ID;
+}
+
+/**
  * Moves a shell `dist` units along its velocity, handling bounces and hits.
  * Returns false if the shell was destroyed.
  */
@@ -228,6 +245,19 @@ function moveShell(
 
     const cx = shell.x + (x1 - shell.x) * bestT;
     const cy = shell.y + (y1 - shell.y) * bestT;
+
+    if (hitTank && isFriendlyHit(state, shell, hitTank)) {
+      // Friendly fire is off: the shell stops on the other human with a harmless clang.
+      events.push({
+        type: 'friendlyHit',
+        shooterId: shell.ownerId,
+        targetId: hitTank.id,
+        shellId: shell.id,
+        x: cx,
+        y: cy,
+      });
+      return false;
+    }
 
     if (hitTank) {
       hitTank.hp -= shell.damage;

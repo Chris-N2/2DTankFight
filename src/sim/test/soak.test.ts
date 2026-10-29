@@ -104,6 +104,62 @@ describe('mortars: soak', () => {
   }
 });
 
+describe('two players: soak', () => {
+  for (const board of BUILT_IN_BOARDS) {
+    test(`${board.name}: two-player games with humans who never move all end, with no tank ever inside a wall`, () => {
+      for (const seed of seeds(board, 10)) {
+        for (const options of [
+          { mode: 'lastOneStanding', aiCount: 3, rounds: 1, mortars: true, humans: 2 },
+          { mode: 'waves', startAiCount: 3, mortars: true, humans: 2 },
+        ] as const) {
+          const state = matchOn(options, board, seed);
+          // If the AI tanks finish each other off in Last One Standing, two still humans would play on for ever:
+          // the round is theirs to fight out, so the AI's part is done.
+          const aiDone = (): boolean =>
+            state.phase === 'playing' && !state.tanks.some((t) => t.kind === 'ai' && t.alive);
+          let tick = 0;
+          for (; tick < TIME_LIMIT_TICKS && state.phase !== 'gameOver' && !aiDone(); tick++) {
+            step(state, {});
+            expectNoTankInWalls(state);
+          }
+          expect(tick, `${options.mode}, seed ${seed} did not end`).toBeLessThan(TIME_LIMIT_TICKS);
+        }
+      }
+    }, 120_000);
+
+    test(`${board.name}: two-player Waves keep moving with both humans driving`, () => {
+      // Two unkillable humans driven by the AI's own brain, so waves keep being cleared with two targets about. The
+      // brain treats every other tank as an enemy, so each human's partner is hidden from it while it thinks.
+      for (const seed of seeds(board, 2)) {
+        const state = matchOn({ mode: 'waves', startAiCount: 1, mortars: true, humans: 2 }, board, seed);
+        let waveTicks = 0;
+        let wave = state.round;
+        while (state.round < 6) {
+          expect(state.phase, `seed ${seed}: a human was destroyed for good`).not.toBe('gameOver');
+          const inputs: Record<string, TankInput> = {};
+          const humans = state.tanks.filter((t) => t.kind === 'human');
+          for (const human of humans) {
+            human.hp = 1000;
+            if (state.phase !== 'playing') continue;
+            const partner = humans.find((t) => t !== human)!;
+            const tanks = state.tanks;
+            state.tanks = tanks.filter((t) => t !== partner);
+            inputs[human.id] = think(state, human);
+            state.tanks = tanks;
+          }
+          step(state, inputs);
+          expectNoTankInWalls(state);
+          if (state.round !== wave) {
+            wave = state.round;
+            waveTicks = 0;
+          }
+          expect(++waveTicks, `seed ${seed} stalled in wave ${wave}`).toBeLessThan(TIME_LIMIT_TICKS);
+        }
+      }
+    }, 120_000);
+  }
+});
+
 describe('waves: soak', () => {
   for (const board of BUILT_IN_BOARDS) {
     test(`${board.name}: Waves games with a human who never moves all end, with no tank ever inside a wall`, () => {

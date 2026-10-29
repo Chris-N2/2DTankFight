@@ -178,10 +178,27 @@ export type GameMode = 'lastOneStanding' | 'waves';
  */
 export type MapOptions = { kind: 'random' } | { kind: 'sequence'; ids: string[] };
 
-/** `mortars: false` is classic play: nobody has a mortar. */
+/**
+ * `mortars: false` is classic play: nobody has a mortar. `humans` is the number of human players (1 when absent).
+ * `friendlyFire` (Waves with two humans; off when absent) decides whether one human's shells can damage the other.
+ */
 export type MatchOptions =
-  | { mode: 'lastOneStanding'; aiCount: number; rounds: number; mortars: boolean; maps: MapOptions }
-  | { mode: 'waves'; startAiCount: number; mortars: boolean; maps: MapOptions };
+  | {
+      mode: 'lastOneStanding';
+      aiCount: number;
+      rounds: number;
+      mortars: boolean;
+      maps: MapOptions;
+      humans?: 1 | 2;
+    }
+  | {
+      mode: 'waves';
+      startAiCount: number;
+      mortars: boolean;
+      maps: MapOptions;
+      humans?: 1 | 2;
+      friendlyFire?: boolean;
+    };
 
 /** Where the match is in its map rotation. */
 export interface MapRotation {
@@ -196,6 +213,7 @@ export interface MapRotation {
  * `MatchState.round` is the wave number.
  */
 export type Phase = 'countdown' | 'playing' | 'roundOver' | 'gameOver';
+/** `human`: one or more humans scored the round; `ai`: the AI won it; `draw`: nobody scored. */
 export type RoundOutcome = 'human' | 'ai' | 'draw';
 export type LastOneStandingResult = 'win' | 'loss' | 'draw';
 /** `over` ends every Waves game: the score is the number of waves cleared. */
@@ -213,7 +231,12 @@ export interface WavesState {
 }
 
 export interface Scores {
-  human: number;
+  /** Points by human tank id. Single-player has the one entry. */
+  humans: Record<string, number>;
+  /**
+   * Rounds the AI won. In single-player the AI side's points; with two humans only for show, since AI rounds score
+   * for nobody.
+   */
   ai: number;
 }
 
@@ -235,7 +258,13 @@ export interface MatchState {
   roundsPlayed: number;
   scores: Scores;
   lastRoundOutcome: RoundOutcome | null;
+  /** The humans who scored in the last round: both of them for a shared point. */
+  lastRoundScorers: string[];
   result: GameResult | null;
+  /** The winning human, once the game has been won; null otherwise (and always in Waves). */
+  winnerId: string | null;
+  /** Whether the game was won by forfeit, because the other human left. */
+  forfeit: boolean;
   /** The Waves mode's own data; null in Last One Standing. */
   waves: WavesState | null;
   tanks: TankState[];
@@ -277,9 +306,26 @@ export type SimEvent =
       toY: number;
     }
   | { type: 'mortarLanded'; mortarId: number; ownerId: string; x: number; y: number; slowedIds: string[] }
+  | {
+      /** A shell from one human touched the other with friendly fire off: it's gone, and did no damage. */
+      type: 'friendlyHit';
+      shooterId: string;
+      targetId: string;
+      shellId: number;
+      x: number;
+      y: number;
+    }
   | { type: 'eliminated'; tankId: string; byId: string; x: number; y: number }
-  | { type: 'roundEnded'; round: number; outcome: RoundOutcome; scores: Scores }
-  | { type: 'gameEnded'; result: LastOneStandingResult; scores: Scores }
+  | { type: 'left'; tankId: string }
+  | { type: 'roundEnded'; round: number; outcome: RoundOutcome; scorers: string[]; scores: Scores }
+  | {
+      type: 'gameEnded';
+      result: LastOneStandingResult;
+      scores: Scores;
+      /** The winning human, or null for a loss or a draw. */
+      winnerId: string | null;
+      forfeit: boolean;
+    }
   | { type: 'waveStarted'; wave: number; aiCount: number; changes: WaveChange[] }
   | { type: 'waveCleared'; wave: number; cleared: number }
   | { type: 'gameEnded'; result: 'over'; wavesCleared: number };
@@ -287,4 +333,7 @@ export type SimEvent =
 /** Inputs for one tick, keyed by tank id. Tanks without an entry are treated as idle. */
 export type InputMap = Readonly<Record<string, TankInput | undefined>>;
 
+/** The host, and the only human in single-player. */
 export const HUMAN_ID = 'p1';
+/** The second human, in a two-player match. */
+export const SECOND_HUMAN_ID = 'p2';

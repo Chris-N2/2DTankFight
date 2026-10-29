@@ -151,7 +151,7 @@ describe('waves: result screen', () => {
   });
 
   test('Last One Standing results have no best line', () => {
-    expect(gameOverText('win', { human: 3, ai: 1 }).best).toBe('');
+    expect(gameOverText('win', { humans: { p1: 3 }, ai: 1 }).best).toBe('');
   });
 
   test('Best on this device', () => {

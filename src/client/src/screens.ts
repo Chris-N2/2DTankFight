@@ -104,7 +104,7 @@ export interface GameOverText {
 }
 
 export function scoreLine(scores: Scores): string {
-  return `You ${scores.human} – ${scores.ai} AI`;
+  return `You ${scores.humans[HUMAN_ID] ?? 0} – ${scores.ai} AI`;
 }
 
 const ROUND_TITLES: Record<RoundOutcome, string> = {

@@ -45,7 +45,7 @@ describe('round and game flow text', () => {
   test('round results show the outcome and the updated score', () => {
     const state = match();
     state.phase = 'roundOver';
-    state.scores = { human: 2, ai: 1 };
+    state.scores = { humans: { p1: 2 }, ai: 1 };
     state.lastRoundOutcome = 'human';
     expect(bannerFor(state, false, false)).toEqual({ title: 'Round won!', sub: 'You 2 – 1 AI' });
     state.lastRoundOutcome = 'ai';
@@ -56,12 +56,12 @@ describe('round and game flow text', () => {
   });
 
   test('game result text covers win, loss and draw', () => {
-    expect(gameOverText('win', { human: 3, ai: 1 })).toMatchObject({
+    expect(gameOverText('win', { humans: { p1: 3 }, ai: 1 })).toMatchObject({
       title: 'Victory!',
       score: 'You 3 – 1 AI',
     });
-    expect(gameOverText('loss', { human: 0, ai: 3 }).title).toBe('Defeat');
-    expect(gameOverText('draw', { human: 1, ai: 1 }).title).toBe('A draw');
+    expect(gameOverText('loss', { humans: { p1: 0 }, ai: 3 }).title).toBe('Defeat');
+    expect(gameOverText('draw', { humans: { p1: 1 }, ai: 1 }).title).toBe('A draw');
   });
 });
 
@@ -79,7 +79,7 @@ describe('heads-up display', () => {
   test('round and score lines', () => {
     const state = match();
     expect(roundLine(state)).toBe('Round 1 / 5');
-    expect(scoreLine({ human: 1, ai: 0 })).toBe('You 1 – 0 AI');
+    expect(scoreLine({ humans: { p1: 1 }, ai: 0 })).toBe('You 1 – 0 AI');
   });
 });
 

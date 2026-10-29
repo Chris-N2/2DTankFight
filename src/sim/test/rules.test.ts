@@ -107,8 +107,11 @@ describe('last-one-standing: round end and scoring', () => {
     const state = playing(undefined, 1);
     tank(state, 'ai1').hp = 0;
     const events = step(state, {});
-    expect(ofType(events, 'roundEnded')[0]).toMatchObject({ outcome: 'human', scores: { human: 1, ai: 0 } });
-    expect(state.scores).toEqual({ human: 1, ai: 0 });
+    expect(ofType(events, 'roundEnded')[0]).toMatchObject({
+      outcome: 'human',
+      scores: { humans: { p1: 1 }, ai: 0 },
+    });
+    expect(state.scores).toEqual({ humans: { p1: 1 }, ai: 0 });
     expect(state.phase).toBe('roundOver');
   });
 
@@ -119,7 +122,7 @@ describe('last-one-standing: round end and scoring', () => {
     const events = step(state, {});
     expect(state.tanks.filter((t) => t.kind === 'ai' && t.alive)).toHaveLength(2);
     expect(ofType(events, 'roundEnded')[0]).toMatchObject({ outcome: 'ai' });
-    expect(state.scores).toEqual({ human: 0, ai: 1 });
+    expect(state.scores).toEqual({ humans: { p1: 0 }, ai: 1 });
     expect(state.phase).toBe('roundOver'); // ended immediately, without waiting for the AI to finish each other off
   });
 
@@ -134,7 +137,7 @@ describe('last-one-standing: round end and scoring', () => {
     addShell(state, 300, 300, Math.PI, { ownerId: 'ai1' });
     let ended: ReturnType<typeof ofType<'roundEnded'>> = [];
     for (let i = 0; i < 60 && ended.length === 0; i++) ended = ofType(step(state, {}), 'roundEnded');
-    expect(ended[0]).toMatchObject({ outcome: 'draw', scores: { human: 0, ai: 0 } });
+    expect(ended[0]).toMatchObject({ outcome: 'draw', scores: { humans: { p1: 0 }, ai: 0 } });
     expect(state.roundsPlayed).toBe(1);
   });
 
@@ -151,13 +154,13 @@ describe('last-one-standing: round end and scoring', () => {
     expect(JSON.stringify(state.shells)).toBe(shellBefore); // frozen
     expect(p1.hp).toBe(cfg.tankMaxHp);
     expect(count(events, 'hit')).toBe(0);
-    expect(state.scores).toEqual({ human: 1, ai: 0 });
+    expect(state.scores).toEqual({ humans: { p1: 1 }, ai: 0 });
   });
 
   test('every finished round counts towards rounds played', () => {
     const state = playOut(7, ['human', 'draw', 'ai']);
     expect(state.roundsPlayed).toBe(3);
-    expect(state.scores).toEqual({ human: 1, ai: 1 });
+    expect(state.scores).toEqual({ humans: { p1: 1 }, ai: 1 });
   });
 });
 
@@ -169,7 +172,10 @@ describe('last-one-standing: game end', () => {
     expect(state.phase).toBe('gameOver');
     expect(state.result).toBe('win');
     expect(state.roundsPlayed).toBe(4);
-    expect(ofType(events, 'gameEnded')[0]).toMatchObject({ result: 'win', scores: { human: 3, ai: 1 } });
+    expect(ofType(events, 'gameEnded')[0]).toMatchObject({
+      result: 'win',
+      scores: { humans: { p1: 3 }, ai: 1 },
+    });
   });
 
   test('AI clinches the game', () => {
@@ -185,14 +191,14 @@ describe('last-one-standing: game end', () => {
     finishRound(state, 'human');
     expect(state.phase).toBe('gameOver');
     expect(state.result).toBe('win');
-    expect(state.scores).toEqual({ human: 2, ai: 0 });
+    expect(state.scores).toEqual({ humans: { p1: 2 }, ai: 0 });
   });
 
   test('Drawn game', () => {
     const state = playOut(3, ['human', 'ai', 'draw']);
     expect(state.phase).toBe('gameOver');
     expect(state.result).toBe('draw');
-    expect(state.scores).toEqual({ human: 1, ai: 1 });
+    expect(state.scores).toEqual({ humans: { p1: 1 }, ai: 1 });
   });
 
   test('a single-round game ends after one round', () => {
@@ -228,6 +234,6 @@ describe('last-one-standing: rounds are independent', () => {
     expect(state.shells).toHaveLength(0);
     expect(JSON.stringify(state.config)).toBe(configBefore); // AI difficulty unchanged
     for (const id of ['ai1', 'ai2']) expect(state.ai[id]).toMatchObject({ targetId: null, path: [] });
-    expect(state.scores).toEqual({ human: 1, ai: 0 });
+    expect(state.scores).toEqual({ humans: { p1: 1 }, ai: 0 });
   });
 });

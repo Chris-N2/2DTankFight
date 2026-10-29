@@ -16,6 +16,9 @@ import { matchOn, type GameOptions } from './helpers';
 // draws). The spawns are unchanged; Last One Standing now plays four rounds in the scripted time, not five.
 // Re-recorded for mortar-silences-ai: every tank gained a field (the only change in Last One Standing), and in Waves
 // a mortared AI can't fire, so the scripted human now reaches one more wave in the same time.
+// Re-recorded for two-player-sim: scores became per human and the round and game events gained fields, which the
+// fingerprint includes. Play itself didn't change: the spawns are the same, and a temporary test that mapped the new
+// shapes back to the old ones matched 168 recorded single-player games across every board.
 
 function scripted(tick: number): TankInput {
   return {
@@ -68,7 +71,8 @@ function record(
   let events = '';
   for (let i = 0; i < ticks && state.phase !== 'gameOver'; i++) {
     const before = state.round;
-    const tickEvents = step(state, { p1: scripted(i) });
+    // A second human, if there is one, plays the same script half a cycle later.
+    const tickEvents = step(state, { p1: scripted(i), p2: scripted(i + 75) });
     events += JSON.stringify(tickEvents);
     if (state.round !== before) noteSpawns();
   }
@@ -85,7 +89,7 @@ describe('map selection: golden replay', () => {
         'p1@1130,730 ai1@70,730 ai2@70,70 ai3@600,760 ai4@1130,70',
         'p1@600,760 ai1@1130,730 ai2@70,70 ai3@70,730 ai4@1130,70',
       ],
-      fingerprint: '59381cda',
+      fingerprint: '0b2b83bf',
     });
   });
 
@@ -108,7 +112,54 @@ describe('map selection: golden replay', () => {
         'p1@70,730 ai1@70,70 ai2@1130,730 ai3@600,760 ai4@1130,70',
         'p1@1130,730 ai1@70,70 ai2@1130,70 ai3@600,760 ai4@70,730',
       ],
-      fingerprint: 'f8330f02',
+      fingerprint: '274498e6',
+    });
+  });
+});
+
+// Recorded for two-player-sim. Nothing depended on two-player play before, so these pin it down for later changes.
+describe('two players: golden replay', () => {
+  test('two-player Last One Standing on Proving Ground plays as recorded', () => {
+    const got = record(
+      { mode: 'lastOneStanding', aiCount: 3, rounds: 7, mortars: true, humans: 2 },
+      4242,
+      20_000,
+    );
+    expect(got).toEqual({
+      spawns: [
+        'p1@600,760 p2@1130,730 ai1@70,730 ai2@1130,70 ai3@70,70',
+        'p1@70,70 p2@70,730 ai1@1130,70 ai2@600,760 ai3@1130,730',
+        'p1@1130,730 p2@70,730 ai1@70,70 ai2@600,760 ai3@1130,70',
+        'p1@600,760 p2@1130,730 ai1@70,70 ai2@70,730 ai3@1130,70',
+        'p1@600,760 p2@70,730 ai1@1130,730 ai2@1130,70 ai3@70,70',
+        'p1@1130,730 p2@600,760 ai1@1130,70 ai2@70,730 ai3@70,70',
+        'p1@1130,70 p2@600,760 ai1@1130,730 ai2@70,730 ai3@70,70',
+      ],
+      fingerprint: '9f39354f',
+    });
+  });
+
+  test('two-player Waves on Proving Ground plays as recorded', () => {
+    const got = record({ mode: 'waves', startAiCount: 1, mortars: true, humans: 2 }, 9001, 40_000, {
+      ...DEFAULT_CONFIG,
+      tankMaxHp: 1000,
+    });
+    expect(got).toEqual({
+      spawns: [
+        'p1@70,730 p2@600,760 ai1@1130,730',
+        'p1@1130,730 p2@600,760 ai1@1130,70 ai2@70,730',
+        'p1@1130,730 p2@1130,70 ai1@70,70 ai2@600,760 ai3@70,730',
+        'p1@1130,70 p2@600,760 ai1@70,70 ai2@1130,730 ai3@70,730',
+        'p1@600,760 p2@70,730 ai1@1130,730 ai2@1130,70 ai3@70,70',
+        'p1@600,760 p2@70,730 ai1@1130,730 ai2@1130,70 ai3@70,70',
+        'p1@600,760 p2@70,730 ai1@1130,730 ai2@1130,70 ai3@70,70',
+        'p1@1130,730 p2@1130,70 ai1@600,760 ai2@70,70 ai3@70,730',
+        'p1@70,730 p2@70,70 ai1@1130,730 ai2@600,760 ai3@1130,70',
+        'p1@1130,730 p2@70,70 ai1@1130,70 ai2@600,760 ai3@70,730',
+        'p1@1130,730 p2@1130,70 ai1@70,70 ai2@600,760 ai3@70,730',
+        'p1@1130,70 p2@1130,730 ai1@70,70 ai2@600,760 ai3@70,730',
+      ],
+      fingerprint: 'd6543c17',
     });
   });
 });

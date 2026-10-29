@@ -2,12 +2,13 @@ import { createAiMemory, think } from './ai/think';
 import { BUILT_IN_BOARDS } from './boards';
 import { DEFAULT_CONFIG, ticks, type SimConfig } from './config';
 import { buildNavGrid } from './nav';
-import { maxTanks, validateOptions } from './options';
+import { humansOf, maxTanks, validateOptions } from './options';
 import { createRng, nextInt, shuffle, type RngState } from './rng';
 import { rulesFor } from './rules';
-import { createTank } from './tank';
+import { createTank, HUMAN_COLOR_INDEX, SECOND_HUMAN_COLOR_INDEX } from './tank';
 import {
   HUMAN_ID,
+  SECOND_HUMAN_ID,
   type Board,
   type InputMap,
   type MapRotation,
@@ -19,7 +20,7 @@ import {
 import { stepWorld } from './world';
 
 /**
- * Creates a single-player match in the chosen mode, ready to begin the first round's or wave's countdown.
+ * Creates a match for one or two humans in the chosen mode, ready to begin the first round's or wave's countdown.
  * `boards` is the catalogue the map options choose from. Throws if the options are invalid.
  */
 export function createMatch(
@@ -37,6 +38,7 @@ export function createMatch(
   if (short) throw new Error(`Board ${short.name} has too few spawn points.`);
 
   const cfg: SimConfig = { ...config };
+  const humanIds = humansOf(options) === 2 ? [HUMAN_ID, SECOND_HUMAN_ID] : [HUMAN_ID];
   const mapRng = createRng((seed ^ 0x27d4eb2f) >>> 0);
   const state: MatchState = {
     config: cfg,
@@ -51,12 +53,17 @@ export function createMatch(
     phaseTicks: 0,
     round: 0,
     roundsPlayed: 0,
-    scores: { human: 0, ai: 0 },
+    scores: { humans: Object.fromEntries(humanIds.map((id) => [id, 0])), ai: 0 },
     lastRoundOutcome: null,
+    lastRoundScorers: [],
     result: null,
+    winnerId: null,
+    forfeit: false,
     waves: options.mode === 'waves' ? { startAiCount: options.startAiCount, cleared: 0 } : null,
-    // The mode's rules add the AI tanks.
-    tanks: [createTank(cfg, HUMAN_ID, 'human', 0)],
+    // Humans come first, so spawns are assigned in the same order as ever. The mode's rules add the AI tanks.
+    tanks: humanIds.map((id, i) =>
+      createTank(cfg, id, 'human', i === 0 ? HUMAN_COLOR_INDEX : SECOND_HUMAN_COLOR_INDEX),
+    ),
     shells: [],
     nextShellId: 1,
     mortarShells: [],
@@ -95,7 +102,7 @@ export function step(state: MatchState, inputs: InputMap): SimEvent[] {
       }
       stepWorld(state, all, events);
       const rules = rulesFor(state);
-      const ending = rules.evaluate(state);
+      const ending = rules.evaluate(state, events);
       if (ending !== 'continue') {
         rules.finish(state, ending, events);
         if (ending === 'gameOver') {
@@ -115,6 +122,27 @@ export function step(state: MatchState, inputs: InputMap): SimEvent[] {
     case 'gameOver':
       break;
   }
+  return events;
+}
+
+/**
+ * A human leaves a two-player match. Call it between ticks, not during one. Their tank goes, and so do its shells and
+ * any mortar it has in flight, so nothing it fired can still score or slow anyone. Their score is kept for the
+ * result. Then the mode decides: Last One Standing ends in a forfeit win for the human who stays, and Waves carries on
+ * unless nobody is left alive. Does nothing once the game is over, for an id that isn't a human in the match, or in
+ * single-player (there's nobody to carry on). Returns the events.
+ */
+export function leave(state: MatchState, humanId: string): SimEvent[] {
+  const events: SimEvent[] = [];
+  if (state.phase === 'gameOver' || humansOf(state.options) < 2) return events;
+  if (!state.tanks.some((t) => t.id === humanId && t.kind === 'human')) return events;
+
+  state.tanks = state.tanks.filter((t) => t.id !== humanId);
+  state.shells = state.shells.filter((s) => s.ownerId !== humanId);
+  state.mortarShells = state.mortarShells.filter((m) => m.ownerId !== humanId);
+  events.push({ type: 'left', tankId: humanId });
+  rulesFor(state).left(state, humanId, events);
+  if (state.result !== null) state.phase = 'gameOver';
   return events;
 }
 

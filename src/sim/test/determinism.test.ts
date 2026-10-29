@@ -19,7 +19,7 @@ function run(
 ): { state: unknown; events: SimEvent[] } {
   const state = matchOn(options, PROVING_GROUND, seed);
   const events: SimEvent[] = [];
-  for (let i = 0; i < ticks; i++) events.push(...step(state, { p1: scripted(i) }));
+  for (let i = 0; i < ticks; i++) events.push(...step(state, { p1: scripted(i), p2: scripted(i + 75) }));
   return { state: cloneState(state), events };
 }
 
@@ -51,6 +51,18 @@ describe('simulation: determinism', () => {
       expect(a.state).toEqual(b.state);
       expect(a.events).toEqual(b.events);
       expect(ofType(a.events, 'mortarLaunched').length).toBeGreaterThan(0);
+    }
+  });
+
+  test('Deterministic replay with two humans', () => {
+    for (const options of [
+      { mode: 'lastOneStanding', aiCount: 3, rounds: 7, mortars: true, humans: 2 },
+      { mode: 'waves', startAiCount: 2, mortars: true, humans: 2 },
+    ] satisfies GameOptions[]) {
+      const a = run(4321, 3000, options);
+      const b = run(4321, 3000, options);
+      expect(a.state).toEqual(b.state);
+      expect(a.events).toEqual(b.events);
     }
   });
 
