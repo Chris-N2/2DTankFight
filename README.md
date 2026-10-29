@@ -169,6 +169,9 @@ Name the server on the page with one more `<meta>` tag (on `index.html`, or your
 <meta name="tank-command-server" content="wss://tank-server.example.net" />
 ```
 
+If your site sends a Content-Security-Policy header, add the server to its `connect-src` (for example
+`connect-src 'self' wss://tank-server.example.net`), or the browser won't let the game connect.
+
 Join links point back at the page the game is on, with the room code added, so a guest lands on your page and your
 theme. They copy whatever address the host had open, so if your site answers both with and without `www`, list both
 origins in `ALLOWED_ORIGINS`. For online play, put the game on a page of its own rather than in an `<iframe>`: a join link made inside a
@@ -244,9 +247,13 @@ run a single instance. Optionally, point the Web App's health check at `/health`
    stops it at start-up, with a message saying which one and how to fix it. Fix it in *Environment variables*; the
    app restarts when you *Apply*.
 
-   If `/health` is fine but the game says the online server isn't available, the page's origin is probably missing
-   from `ALLOWED_ORIGINS`. Browsers don't tell a page why a connection was refused, so a page the server won't talk
-   to looks just like a server that's down.
+   If `/health` is fine but the game says the online server isn't available, look in the browser's console (F12).
+   Browsers don't tell a page why a connection failed, so these look just like a server that's down:
+
+   - **Your site's Content-Security-Policy.** If the site sends one, its `connect-src` must allow the server, as in
+     `connect-src 'self' wss://<default domain>`. Otherwise the browser blocks the connection before it leaves the
+     page, and says so in the console.
+   - **`ALLOWED_ORIGINS`** doesn't include the page's origin, so the server refuses the connection.
 
 For a new version, repeat steps 4 and 5 with a fresh build. (The portal's menu names move around from time to time;
 the settings they lead to don't.)
