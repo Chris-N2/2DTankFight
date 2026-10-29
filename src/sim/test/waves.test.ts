@@ -10,6 +10,7 @@ import {
   type WaveChange,
 } from '../src';
 import {
+  addMortar,
   addShell,
   cfg,
   finishRound,
@@ -21,6 +22,7 @@ import {
   tank,
   matchOn,
   withMaps,
+  world,
 } from './helpers';
 
 const COUNTDOWN_TICKS = Math.round(cfg.countdownDuration * cfg.tickRate);
@@ -399,5 +401,98 @@ describe('waves: wave end and score', () => {
     const events = step(state, {});
     expect(ofType(events, 'gameEnded')[0]).toMatchObject({ result: 'over', wavesCleared: 4 });
     expect(state.waves?.cleared).toBe(4);
+  });
+});
+
+describe('waves: mud jams AI turrets', () => {
+  const SLOW = Math.round(cfg.mortarSlowDuration * cfg.tickRate);
+
+  /** A Waves match with mortars on, in play, with the human and one AI tank. */
+  function jamReady(): MatchState {
+    const state = matchOn({ mode: 'waves', startAiCount: 1, mortars: true }, makeBoard(), 1);
+    state.phase = 'playing';
+    state.phaseTicks = 0;
+    place(state, 'p1', 100, 100, 0);
+    // Aimed diagonally, so a shell that does get away doesn't bounce straight back into the AI.
+    place(state, 'ai1', 400, 300, Math.PI / 4);
+    return state;
+  }
+
+  /**
+   * Presses the AI's fire button afresh every tick until it fires, checking each lost press leaves no cooldown.
+   * Returns how many presses were lost.
+   */
+  function pressesLost(state: MatchState): number {
+    const ai = tank(state, 'ai1');
+    let lost = 0;
+    for (; lost < 2 * SLOW; lost++) {
+      ai.fireHeld = false;
+      if (ofType(world(state, { ai1: { fire: true } }), 'shotFired').length > 0) return lost;
+      expect(ai.cooldown).toBe(0);
+    }
+    return lost;
+  }
+
+  test("Jammed for as long as it's slowed", () => {
+    const state = jamReady();
+    const ai = tank(state, 'ai1');
+    addMortar(state, 400, 300);
+    // The jam starts the moment the mortar lands, and lasts exactly as many ticks as the slow.
+    expect(pressesLost(state)).toBe(SLOW);
+    expect(ai.slowTicks).toBe(0);
+  });
+
+  test('fire held right through the jam stays held: no shot when it ends', () => {
+    const state = jamReady();
+    const ai = tank(state, 'ai1');
+    addMortar(state, 400, 300);
+    const events = world(state, { ai1: { fire: true } });
+    while (ai.slowTicks > 0) events.push(...world(state, { ai1: { fire: true } }));
+    events.push(...world(state, { ai1: { fire: true } }));
+    expect(ofType(events, 'shotFired')).toHaveLength(0);
+    // Firing is edge-triggered: a fresh press fires.
+    world(state);
+    expect(ofType(world(state, { ai1: { fire: true } }), 'shotFired')).toHaveLength(1);
+  });
+
+  test('A second splash restarts the jam', () => {
+    const state = jamReady();
+    addMortar(state, 400, 300);
+    world(state);
+    for (let i = 0; i < 60; i++) world(state);
+    expect(tank(state, 'ai1').slowTicks).toBe(SLOW - 60);
+    addMortar(state, 400, 300);
+    expect(pressesLost(state)).toBe(SLOW);
+  });
+
+  test('Shells already fired still fly', () => {
+    const state = jamReady();
+    place(state, 'p1', 100, 300, 0);
+    const ai = place(state, 'ai1', 400, 300, Math.PI);
+    expect(ofType(world(state, { ai1: { fire: true } }), 'shotFired')).toHaveLength(1);
+    addMortar(state, 400, 300);
+    const events = [];
+    for (let i = 0; i < cfg.tickRate; i++) events.push(...world(state));
+    expect(ai.slowTicks).toBeGreaterThan(0);
+    expect(ofType(events, 'hit').map((e) => e.targetId)).toEqual(['p1']);
+  });
+
+  test('Humans are never jammed', () => {
+    const state = jamReady();
+    const human = place(state, 'p1', 400, 300, Math.PI / 4);
+    place(state, 'ai1', 700, 500, 0);
+    addMortar(state, 400, 300, 1, 'p1');
+    world(state);
+    expect(human.slowTicks).toBeGreaterThan(0);
+    expect(human.mudJamsTurret).toBe(false);
+    expect(ofType(world(state, { p1: { fire: true } }), 'shotFired')).toHaveLength(1);
+  });
+
+  test('every AI tank in every wave has a jammable turret; the human never does', () => {
+    const state = waves(2);
+    skipToPlay(state);
+    clearWave(state);
+    expect(aiTanks(state).every((t) => t.mudJamsTurret)).toBe(true);
+    expect(tank(state, 'p1').mudJamsTurret).toBe(false);
   });
 });

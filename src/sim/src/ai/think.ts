@@ -3,6 +3,7 @@ import { angleDiff, distance, lineOfSight } from '../geometry';
 import { mortarRange } from '../mortar';
 import { cellAt, cellCenter, findNearest, findPath, nearestWalkable } from '../nav';
 import { nextFloat, nextRange } from '../rng';
+import { turretJammed } from '../tank';
 import type { AiMemory, MatchState, TankInput, TankState } from '../types';
 
 /** Beyond this distance a lined-up AI keeps closing in (shells have a limited lifetime). */
@@ -98,13 +99,15 @@ export function think(state: MatchState, tank: TankState): TankInput {
 
 /**
  * The backstop against every kind of stall, found or not yet found: an AI that has neither moved nor fired for a
- * whole progress window backs off and plans afresh. Only a committed lob (short, and meant to be stood still for) and
- * a recovery already under way pause it; nothing else can reset it.
+ * whole progress window backs off and plans afresh. Only a committed lob (short, and meant to be stood still for), a
+ * turret jammed by mud (short, and it holds its aim to fire the moment it clears) and a recovery already under way
+ * pause it; nothing else can reset it.
  */
 function makingProgress(state: MatchState, tank: TankState, mem: AiMemory, input: TankInput): boolean {
   const cfg = state.config;
   const moved = distance(tank.x, tank.y, mem.progressRefX, mem.progressRefY) > cfg.aiStuckDistance;
-  if (input.fire || moved || mem.lob || mem.recoverTicks > 0 || mem.targetId === null) {
+  const paused = mem.lob || turretJammed(tank) || mem.recoverTicks > 0 || mem.targetId === null;
+  if (input.fire || moved || paused) {
     mem.progressTicks = 0;
     mem.progressRefX = tank.x;
     mem.progressRefY = tank.y;
@@ -178,7 +181,9 @@ function decide(state: MatchState, tank: TankState, mem: AiMemory): TankInput {
     const aim = Math.atan2(target.y - tank.y, target.x - tank.x) + mem.aimOffset;
     const diff = angleDiff(tank.heading, aim);
     const turn = Math.abs(diff) > halfTurnStep ? (diff > 0 ? 1 : -1) : 0;
-    const ready = mem.seenTicks > ticks(cfg, cfg.aiReactionDelay) && mem.fireWaitTicks === 0;
+    // A jammed turret keeps the aim but doesn't waste a press (or the pause and fresh aim error that follow a shot).
+    const ready =
+      mem.seenTicks > ticks(cfg, cfg.aiReactionDelay) && mem.fireWaitTicks === 0 && !turretJammed(tank);
     // Never knowingly fire into cover, or into an ally: the barrel's actual line must be clear up to the target.
     const barrelClear =
       lineOfSight(

@@ -154,7 +154,8 @@ export const STAGE_HTML = `
       <p class="hint">Best played with a gamepad.</p>
       <p class="hint">Shells bounce once, and they aren't fussy about whom they hit next.</p>
       <p class="hint">
-        One mortar per round: it lobs over walls and bogs tanks down in mud. Including yours.
+        One mortar per round: it lobs over walls and bogs tanks down in mud. Including yours. In Waves, the mud
+        jams the enemy's guns too.
       </p>
     </div>
   </div>

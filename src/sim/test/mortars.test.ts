@@ -16,6 +16,7 @@ import { createAiMemory, hasClearLane, SHOT_LANE, think } from '../src/ai/think'
 import {
   DT,
   R,
+  addMortar,
   cfg,
   finishRound,
   makeBoard,
@@ -47,20 +48,6 @@ function lobFor(state: MatchState, heldTicks: number, extra: Partial<TankInput> 
   for (let i = 0; i < heldTicks; i++) events.push(...world(state, { p1: { ...extra, mortar: true } }));
   events.push(...world(state, { p1: { ...extra, mortar: false } }));
   return events;
-}
-
-/** Puts a mortar in the air directly, landing at (x, y) after `ticksLeft` ticks. */
-function addMortar(state: MatchState, x: number, y: number, ticksLeft = 1, ownerId = 'nobody'): void {
-  state.mortarShells.push({
-    id: state.nextMortarId++,
-    ownerId,
-    fromX: x,
-    fromY: y,
-    toX: x,
-    toY: y,
-    flightTicks: ticksLeft,
-    ticksLeft,
-  });
 }
 
 /** Steps the physics until the next mortar lands. */
@@ -301,6 +288,7 @@ describe('mortars: splash', () => {
   });
 
   test('Turning and firing unaffected', () => {
+    // Last One Standing: the mud doesn't jam anyone's turret.
     const state = target();
     addMortar(state, 400, 300);
     world(state);
@@ -357,6 +345,16 @@ describe('mortars: splash', () => {
     const x = ai.x;
     world(state, { ai1: { throttle: 1 } });
     expect(ai.x - x).toBeCloseTo(cfg.tankSpeed * cfg.mortarSlowFactor * DT);
+  });
+
+  test('Last One Standing keeps every turret', () => {
+    const state = armed();
+    place(state, 'p1', 380, 300, -Math.PI / 2);
+    place(state, 'ai1', 420, 300, Math.PI / 2);
+    addMortar(state, 400, 300);
+    expect(ofType(world(state), 'mortarLanded')[0]!.slowedIds).toEqual(['p1', 'ai1']);
+    const shots = ofType(world(state, { p1: { fire: true }, ai1: { fire: true } }), 'shotFired');
+    expect(shots.map((s) => s.tankId)).toEqual(['p1', 'ai1']);
   });
 
   test('Same rules for everyone', () => {

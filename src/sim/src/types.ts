@@ -77,6 +77,10 @@ export interface TankState {
   mortarHeld: boolean;
   /** Ticks of mortar slow remaining; 0 when not slowed. */
   slowTicks: number;
+  /**
+   * Set by the mode's rules: while this tank is slowed, the mud jams its turret and it can't fire (Waves AI tanks).
+   */
+  mudJamsTurret: boolean;
 }
 
 /**

@@ -13,7 +13,7 @@ Currently playable, single-player:
   restored every wave, and your best run is remembered on this device.
 - **Mortars** (on by default, or switch them off for classic play): one per round, or per wave. Hold to aim, release
   to lob it over the walls. It does no damage, but it bogs down every tank it splashes, yours included. In Waves
-  only you have one.
+  only you have one, and the mud also jams the AI tanks' guns for as long as they're bogged down.
 
 Two-player co-op, more boards and online play are on the way. See
 [CLAUDE.md](CLAUDE.md) for the full vision.

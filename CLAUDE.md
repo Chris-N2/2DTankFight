@@ -100,7 +100,9 @@ player to join (multiplayer).
   and lands where it was aimed. The splash **does no damage: it bogs down (slows) everyone in range, including the
   firer**, setting up a turret kill rather than replacing one.
   - In Last One Standing every tank has one, AI included. In **Waves only humans have them** — the outnumbered
-    player's tool, which keeps hide-and-hunt viable.
+    player's tool, which keeps hide-and-hunt viable. In Waves the mud also **jams AI turrets** for as long as the
+    slow lasts, so a well-placed mortar opens a window to attack on the later waves (see the `mortar-silences-ai`
+    change).
   - Mortars are a host option, **on by default**; off is "classic" play.
   - Why not damage? The original plan (3 damaging mortars) would have made cover worthless and rounds swingy; see the
     `mortars` change for the reasoning.

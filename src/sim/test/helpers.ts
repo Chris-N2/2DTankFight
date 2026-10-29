@@ -132,6 +132,20 @@ export function addShell(
   return id;
 }
 
+/** Puts a mortar in the air directly, landing at (x, y) after `ticksLeft` ticks. */
+export function addMortar(state: MatchState, x: number, y: number, ticksLeft = 1, ownerId = 'nobody'): void {
+  state.mortarShells.push({
+    id: state.nextMortarId++,
+    ownerId,
+    fromX: x,
+    fromY: y,
+    toX: x,
+    toY: y,
+    flightTicks: ticksLeft,
+    ticksLeft,
+  });
+}
+
 /** Steps the match (no human input) until the phase is 'playing' or the game is over. */
 export function skipToPlay(state: MatchState): SimEvent[] {
   const events: SimEvent[] = [];

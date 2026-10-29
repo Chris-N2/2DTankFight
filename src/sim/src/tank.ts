@@ -21,6 +21,7 @@ export function createTank(config: SimConfig, id: string, kind: TankKind, colorI
     mortarCharge: -1,
     mortarHeld: false,
     slowTicks: 0,
+    mudJamsTurret: false,
   };
   setDefaultCombat(config, tank);
   tank.hp = tank.maxHp;
@@ -32,4 +33,9 @@ export function setDefaultCombat(config: SimConfig, tank: TankState): void {
   tank.maxHp = config.tankMaxHp;
   tank.shellDamage = config.shellDamage;
   tank.shellSpeed = config.shellSpeed;
+}
+
+/** Whether a mortar splash has jammed this tank's turret: it can't fire for as long as it's slowed. */
+export function turretJammed(tank: TankState): boolean {
+  return tank.mudJamsTurret && tank.slowTicks > 0;
 }

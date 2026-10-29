@@ -14,6 +14,8 @@ import { matchOn, type GameOptions } from './helpers';
 // deliberately alters gameplay, re-record the values; if it fails after a change to map selection, that's a bug.
 // Re-recorded for ai-steady-at-corners, which changed how AI tanks move, aim and pick targets (and so their random
 // draws). The spawns are unchanged; Last One Standing now plays four rounds in the scripted time, not five.
+// Re-recorded for mortar-silences-ai: every tank gained a field (the only change in Last One Standing), and in Waves
+// a mortared AI can't fire, so the scripted human now reaches one more wave in the same time.
 
 function scripted(tick: number): TankInput {
   return {
@@ -83,7 +85,7 @@ describe('map selection: golden replay', () => {
         'p1@1130,730 ai1@70,730 ai2@70,70 ai3@600,760 ai4@1130,70',
         'p1@600,760 ai1@1130,730 ai2@70,70 ai3@70,730 ai4@1130,70',
       ],
-      fingerprint: 'c9aa4c74',
+      fingerprint: '59381cda',
     });
   });
 
@@ -104,8 +106,9 @@ describe('map selection: golden replay', () => {
         'p1@600,760 ai1@70,730 ai2@1130,730 ai3@1130,70 ai4@70,70',
         'p1@1130,730 ai1@1130,70 ai2@600,760 ai3@70,70 ai4@70,730',
         'p1@70,730 ai1@70,70 ai2@1130,730 ai3@600,760 ai4@1130,70',
+        'p1@1130,730 ai1@70,70 ai2@1130,70 ai3@600,760 ai4@70,730',
       ],
-      fingerprint: 'bda10952',
+      fingerprint: 'f8330f02',
     });
   });
 });

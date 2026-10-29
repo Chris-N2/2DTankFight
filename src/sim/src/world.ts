@@ -9,6 +9,7 @@ import {
   wrapAngle,
 } from './geometry';
 import { chargeMortars, flyMortars } from './mortar';
+import { turretJammed } from './tank';
 import {
   IDLE_INPUT,
   type InputMap,
@@ -59,7 +60,8 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
     const input = inputs[tank.id] ?? IDLE_INPUT;
     const pressed = input.fire && !tank.fireHeld;
     tank.fireHeld = input.fire;
-    if (pressed && tank.cooldown === 0 && tank.hp > 0) firing.push(tank);
+    // A press while the turret is jammed is simply lost: it doesn't fire later or start a cooldown.
+    if (pressed && tank.cooldown === 0 && tank.hp > 0 && !turretJammed(tank)) firing.push(tank);
   }
   for (const tank of firing) fire(state, tank, events, lastHitBy);
   chargeMortars(state, inputs, events);

@@ -516,3 +516,29 @@ describe('ai: decisive movement', () => {
     expect(inputs.some((i) => i.throttle === -1)).toBe(true); // it backs off rather than pushing on
   });
 });
+
+describe('ai: waiting out a jammed turret', () => {
+  test('Holds its aim through the jam', () => {
+    const state = playingWaves(makeBoard(), 1);
+    const target = place(state, 'p1', 200, 300, 0);
+    const ai = place(state, 'ai1', 400, 300, Math.PI);
+    // Longer than the progress window, so the watchdog would have backed the AI off if it counted the jam.
+    ai.slowTicks = Math.round(cfg.mortarSlowDuration * cfg.tickRate);
+    expect(ai.slowTicks).toBeGreaterThan(Math.round(cfg.aiProgressWindow * cfg.tickRate));
+    const mem = state.ai['ai1']!;
+    const x = ai.x;
+    while (ai.slowTicks > 0) {
+      const events = step(state, {});
+      expect(ofType(events, 'shotFired')).toHaveLength(0);
+      expect(ai.fireHeld).toBe(false);
+      expect(mem.recoverTicks).toBe(0);
+    }
+    expect(Math.abs(angleDiff(ai.heading, Math.PI))).toBeLessThanOrEqual(cfg.aiAimError + cfg.aiAimTolerance);
+    expect(Math.abs(ai.x - x)).toBeLessThan(cfg.aiStuckDistance);
+
+    // Lined up and long past its reaction delay: it fires the moment the mud clears.
+    target.hp = cfg.tankMaxHp;
+    const fired = ofType(step(state, {}), 'shotFired');
+    expect(fired.map((e) => e.tankId)).toEqual(['ai1']);
+  });
+});

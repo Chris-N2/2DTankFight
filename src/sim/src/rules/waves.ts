@@ -96,7 +96,7 @@ export const waves: ModeRules = {
     }
 
     // AI tanks are rebuilt every wave. A tank keeps its id and colour from wave to wave. They never get a
-    // mortar: in Waves it's the outnumbered human's tool.
+    // mortar: in Waves it's the outnumbered human's tool, and the mud jams their turrets while they're slowed.
     const ai = [];
     for (let i = 1; i <= setup.aiCount; i++) {
       const tank = createTank(cfg, `ai${i}`, 'ai', i);
@@ -104,6 +104,7 @@ export const waves: ModeRules = {
       tank.hp = setup.aiMaxHp;
       tank.shellDamage = setup.aiShellDamage;
       tank.shellSpeed = setup.aiShellSpeed;
+      tank.mudJamsTurret = true;
       ai.push(tank);
     }
     state.tanks = [...humans, ...ai];
