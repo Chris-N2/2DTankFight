@@ -154,7 +154,12 @@ Suggested change sequence:
    1. map selection (Random / Sequence) and the first new boards (Run For Cover, Nowhere (Much) To Hide, Pac-Tank);
    2. more boards after playtesting (Frustration, Ricochet Alley, Checkerboard), plus spawn fixes for Pac-Tank and
       Run For Cover. (A third step, a random board generator, was dropped: see *Boards*.)
-6. Multiplayer (room codes, authoritative server, prediction, disconnect handling)
+6. Multiplayer, in three steps:
+   1. `two-player-sim`: two humans in the simulation (inputs for both, friendly fire, leaving), with no networking
+      yet (done);
+   2. `net-play`: the server and online play (room codes, the authoritative server, the lobby, snapshots and
+      interpolation, disconnect handling with a grace period, the test bot, and a real deployment);
+   3. `net-feel`: prediction of your own tank, so it answers your controls at once rather than a round trip later.
 
 ### QA feedback loop
 

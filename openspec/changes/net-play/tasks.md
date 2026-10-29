@@ -88,14 +88,14 @@ Suggested sessions, each ending somewhere checkable:
 - [ ] 6.1 README: online play for players; hosting the server with Zip Deploy to App Service (settings and the
   copy-paste `az webapp deploy` block), Docker, and localhost/LAN; the server tag; a note that rooms don't survive a
   redeploy, and to avoid iframes for online play. Verify: each documented command was run once while writing it.
-- [ ] 6.2 CLAUDE.md: record the multiplayer split (`two-player-sim` done, `net-play`, then `net-feel`) in the
+- [x] 6.2 CLAUDE.md: record the multiplayer split (`two-player-sim` done, `net-play`, then `net-feel`) in the
   suggested change sequence. Verify: the section reads correctly.
 
 ## 7. Verification
 
-- [ ] 7.1 Full checks: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` and `npm run build`
+- [x] 7.1 Full checks: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` and `npm run build`
   all pass, and the existing single-player golden runs are unchanged.
-- [ ] 7.2 Local end-to-end: `npm run dev:server` plus `npm run dev`, then a full game in each mode between two browser
+- [x] 7.2 Local end-to-end: `npm run dev:server` plus `npm run dev`, then a full game in each mode between two browser
   tabs, and one against the test bot, including a refresh mid-game. Verify: the developer plays it and confirms.
 - [ ] 7.3 Deploy to the developer's App Service (new Web App, settings as in the README), point a host page at it,
   and play one online game for real. Verify: the developer confirms a game was played through the deployed server.
