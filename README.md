@@ -70,6 +70,27 @@ setup screen offers **Host online game** and **Join a game**.
 
 Online games don't set a Waves best on either device.
 
+## Achievements
+
+There are 20 achievements for the funny, clever and plain difficult things that happen in a game, from a bank-shot
+kill to clearing a wave of Waves without firing a shot. *Achievements* on the setup screen lists them all: the ones
+you have, and the ones you don't yet (greyed out, with what earns them, so you know what to try). Anything you earn
+is announced once the round or wave is over, or on the result screen, never in the middle of a fight.
+
+- **Each player earns their own**, in single-player games and in online games, from the game as their own screen
+  showed it. Five of them need a two-player online game; on a site without a game server they're marked as needing
+  online play. Games against the server's test bot don't earn anything.
+- **They're kept in your browser** (in its local storage), so there's no account and nothing about you is sent
+  anywhere. They belong to that browser on that site: another browser, another device, or a different site hosting the
+  game starts afresh, and clearing the browser's data for the site clears them too. If the browser won't let the game
+  store anything, achievements still work but are forgotten when you leave, and the Achievements screen says so.
+- **Getting back in after a dropped connection** means the round in progress can't earn the achievements that depend
+  on the whole round (Perfection, Pacifist, Stop Hitting Yourself and You Can Take That to the Bank), since some of it
+  went by unseen. The next round counts in full.
+
+Hosting the server? Bank-shot, mud and MADness achievements online need the server from the same release as the
+page, since the server's game reports those. With an older server they just can't be earned online.
+
 ## Putting it on your site
 
 `npm run build` produces a static site in `src/client/dist`. Copy that folder anywhere on a web server, including a

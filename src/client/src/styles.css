@@ -473,3 +473,103 @@ kbd {
 .overlay-light {
   background: rgba(8, 10, 6, 0.25);
 }
+
+/* Achievements: the unlocks announced between rounds and on the result screen, and the Achievements screen. */
+.achievements-buttons {
+  margin-top: 8px;
+}
+
+.unlock-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.unlock-list li {
+  padding: 6px 10px;
+  border: 1px solid var(--t-accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--t-panel), var(--t-accent) 10%);
+}
+
+.unlock-list strong {
+  display: block;
+  color: var(--t-accent);
+}
+
+/* Between rounds: under the centre banner, out of the way of the arena's middle. */
+.unlocks {
+  position: absolute;
+  top: calc(50% + clamp(70px, 12vw, 120px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 32px));
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.unlocks li {
+  background: var(--t-panel);
+}
+
+.achievements-panel {
+  width: min(620px, 100%);
+}
+
+.achievements-count {
+  margin: 0;
+  color: var(--t-muted);
+}
+
+.achievement-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  text-align: left;
+  outline: none;
+}
+
+.achievement {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 4px;
+  border-top: 1px solid color-mix(in srgb, var(--t-wall-edge) 50%, transparent);
+}
+
+.achievement-mark {
+  flex: none;
+  width: 1.5em;
+  text-align: center;
+  color: var(--t-accent);
+  font-weight: 800;
+}
+
+.achievement-name {
+  display: block;
+  font-weight: 700;
+}
+
+.achievement-description,
+.achievement-note {
+  display: block;
+  font-size: 13px;
+}
+
+.achievement-note {
+  font-style: italic;
+}
+
+/* Not earned yet: greyed out, but still readable, so players know what to try. */
+.achievement.locked {
+  color: var(--t-muted);
+}
+
+.achievement.locked .achievement-mark {
+  color: var(--t-muted);
+  font-weight: 400;
+}

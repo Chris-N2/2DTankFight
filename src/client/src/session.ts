@@ -52,6 +52,11 @@ export class OnlineSession {
   guest = false;
   /** Whether the server offers the test bot. */
   botOffered = false;
+  /**
+   * Whether the second seat is (or is about to be) the test bot: from asking for it until the room is back in the
+   * lobby, which sends the bot away. Games against it don't earn achievements.
+   */
+  vsBot = false;
   /** This player's own connection dropped and is trying to get back. */
   reconnecting = false;
   /** The other player dropped: when their grace period ends. */
@@ -123,7 +128,10 @@ export class OnlineSession {
   }
 
   playBot(): void {
-    if (this.isHost && this.phase === 'lobby' && !this.guest && this.botOffered) this.conn.send({ t: 'bot' });
+    if (this.isHost && this.phase === 'lobby' && !this.guest && this.botOffered) {
+      this.vsBot = true;
+      this.conn.send({ t: 'bot' });
+    }
   }
 
   playAgain(): void {
@@ -193,9 +201,10 @@ export class OnlineSession {
       case 'refused':
         // In the lobby, a refusal is the server turning down an option (or the bot). But one that answers a create,
         // join or rejoin means there's no seat to be had, wherever the player was: back in after a drop included.
-        if (this.phase === 'lobby' && !this.awaitingSeat)
+        if (this.phase === 'lobby' && !this.awaitingSeat) {
           this.lobbyNote = refusedText(msg.reason, msg.detail);
-        else if (this.intent.t === 'rejoin' && (msg.reason === 'noSuchGame' || msg.reason === 'invalid')) {
+          this.vsBot = false;
+        } else if (this.intent.t === 'rejoin' && (msg.reason === 'noSuchGame' || msg.reason === 'invalid')) {
           this.end('The game you were in has ended.');
         } else this.end(refusedText(msg.reason, msg.detail));
         break;
@@ -232,6 +241,7 @@ export class OnlineSession {
       case 'lobby':
         this.phase = 'lobby';
         this.guest = msg.guest;
+        this.vsBot = false;
         this.othersDeadline = null;
         this.resumeAt = null;
         break;

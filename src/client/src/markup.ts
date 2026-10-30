@@ -3,6 +3,12 @@
 
 /** Every element the game looks up by id. `el()` in main.ts only accepts these. */
 export const STAGE_IDS = [
+  'achievements',
+  'achievements-back',
+  'achievements-count',
+  'achievements-list',
+  'achievements-note',
+  'achievements-open',
   'again',
   'banner',
   'banner-sub',
@@ -17,6 +23,7 @@ export const STAGE_IDS = [
   'go-quip',
   'go-score',
   'go-title',
+  'go-unlocks',
   'go-wait',
   'host-online',
   'hud',
@@ -65,6 +72,7 @@ export const STAGE_IDS = [
   'setup-problem',
   'start',
   'tagline',
+  'unlocks',
 ] as const;
 
 export type StageId = (typeof STAGE_IDS)[number];
@@ -107,6 +115,8 @@ export const STAGE_HTML = `
     <div id="banner-title" class="banner-title"></div>
     <div id="banner-sub" class="banner-sub"></div>
   </div>
+
+  <ul id="unlocks" class="unlocks unlock-list hidden" aria-live="polite" aria-label="Achievements unlocked"></ul>
 
   <div id="setup" class="overlay">
     <div class="panel">
@@ -168,6 +178,9 @@ export const STAGE_HTML = `
         <button id="lobby-bot" class="hidden">Play the test bot</button>
         <button id="lobby-leave" class="hidden">Leave</button>
       </div>
+      <div class="buttons achievements-buttons">
+        <button id="achievements-open">Achievements</button>
+      </div>
       <table class="controls">
         <thead>
           <tr>
@@ -222,6 +235,7 @@ export const STAGE_HTML = `
       <p id="go-score" class="go-score"></p>
       <p id="go-best" class="go-best"></p>
       <p id="go-quip" class="hint"></p>
+      <ul id="go-unlocks" class="unlock-list hidden" aria-label="Achievements unlocked"></ul>
       <p id="go-wait" class="go-wait hidden" aria-live="polite"></p>
       <div class="buttons">
         <button id="again" class="primary">Play again</button>
@@ -253,6 +267,18 @@ export const STAGE_HTML = `
           <button id="menu-no" class="primary">Stay and fight</button>
           <button id="menu-yes">Yes, leave</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="achievements" class="overlay hidden">
+    <div class="panel achievements-panel">
+      <h2>Achievements</h2>
+      <p id="achievements-count" class="achievements-count"></p>
+      <ul id="achievements-list" class="achievement-list" tabindex="-1"></ul>
+      <p id="achievements-note" class="hint"></p>
+      <div class="buttons">
+        <button id="achievements-back" class="primary">Back</button>
       </div>
     </div>
   </div>

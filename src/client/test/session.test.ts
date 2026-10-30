@@ -201,6 +201,28 @@ describe('online play: the lobby', () => {
     expect(t.socket().messages.at(-1)).toEqual({ t: 'bot' });
   });
 
+  test('a game against the bot is marked as one, until the bot is sent away', () => {
+    const t = hosting();
+    expect(t.session.vsBot).toBe(false);
+    t.session.playBot();
+    t.receive({ t: 'board', board: PROVING_GROUND }, SNAP);
+    expect(t.session).toMatchObject({ phase: 'game', vsBot: true });
+    t.receive({ t: 'lobby', guest: false });
+    expect(t.session.vsBot).toBe(false);
+  });
+
+  test('a refused bot leaves no mark', () => {
+    const t = hosting();
+    t.session.playBot();
+    t.receive({ t: 'refused', reason: 'invalid', detail: 'The test bot is switched off on this server.' });
+    expect(t.session.vsBot).toBe(false);
+  });
+
+  test('a game against a guest is not a bot game', () => {
+    const t = guestInGame();
+    expect(t.session.vsBot).toBe(false);
+  });
+
   test('No bot unless the server offers one', () => {
     const t = setUp((deps) => OnlineSession.host(OPTIONS, deps));
     t.socket().open();

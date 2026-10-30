@@ -15,6 +15,17 @@ import {
   type WaveChange,
 } from '@tank/sim';
 import { FixedStepLoop, normalizeCode } from '@tank/protocol';
+import {
+  AchievementBook,
+  achievementRows,
+  achievementsButtonLabel,
+  AchievementTracker,
+  ACHIEVEMENTS,
+  storageNote,
+  UnlockQueue,
+  type Achievement,
+  type AchievementRow,
+} from './achievements';
 import { readServerTag, serverAddress } from './address';
 import { browserStorage, recordBest } from './best';
 import { Effects } from './effects';
@@ -90,10 +101,19 @@ const RESULT_KEY_GRACE_MS = 600;
 /** The most AI tanks an online game can have, with two humans. */
 const ONLINE_AI_MAX = aiCountMax(2);
 /** The setup screen's buttons below the options, in the order the d-pad reaches them. */
-const SETUP_BUTTONS: readonly StageId[] = ['start', 'host-online', 'join-online', 'lobby-bot', 'lobby-leave'];
+const SETUP_BUTTONS: readonly StageId[] = [
+  'start',
+  'host-online',
+  'join-online',
+  'lobby-bot',
+  'lobby-leave',
+  'achievements-open',
+];
 const RESULT_BUTTONS: readonly StageId[] = ['again', 'settings', 'go-leave'];
 const MENU_BUTTONS: readonly StageId[] = ['menu-back', 'menu-leave', 'menu-no', 'menu-yes'];
 const JOIN_BUTTONS: readonly StageId[] = ['join-go', 'join-cancel'];
+/** How far the Achievements list moves for each press of the d-pad or an arrow key, in CSS pixels. */
+const LIST_SCROLL_PX = 120;
 
 type InputMode = 'keyboard' | 'mouse' | 'gamepad';
 
@@ -125,6 +145,12 @@ class Game {
   private readonly hudText = new Map<string, string>();
   /** Redraws each option row's selection, for when the options change under the player (the guest's lobby). */
   private readonly optionRenders: (() => void)[] = [];
+  /** Achievements earned in this browser. */
+  private readonly book = AchievementBook.open(browserStorage());
+  /** Spots achievements in the game on screen; null between games, and online until its first snapshot. */
+  private tracker: AchievementTracker | null = null;
+  /** Achievements earned in play, waiting for the end of the round to be announced. */
+  private readonly unlocks = new UnlockQueue();
 
   // Online play: only ever set up when the page names a server.
   private session: OnlineSession | null = null;
@@ -207,7 +233,10 @@ class Game {
       this.session ? this.session.toLobby() : this.showSetup(),
     );
     el('go-leave').addEventListener('click', () => this.leaveOnline());
+    el('achievements-open').addEventListener('click', () => this.openAchievements());
+    el('achievements-back').addEventListener('click', () => this.closeAchievements());
     this.wireOnline();
+    this.updateAchievementsButton();
 
     window.addEventListener('keydown', (e) => {
       this.setInputMode('keyboard');
@@ -280,6 +309,7 @@ class Game {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0x100000000)) >>> 0;
     // "Play again" comes through here too, so it keeps the mode and options.
     this.match = createMatch(matchOptionsFor(this.choices), seed);
+    this.tracker = new AchievementTracker(this.book, HUMAN_ID, this.match);
     this.prev = null;
     this.selfInflicted = false;
     this.waveChanges = [];
@@ -292,6 +322,7 @@ class Game {
 
   /** Hands the screen over to the arena, for a local game or an online one. */
   private enterPlay(): void {
+    this.clearUnlocks();
     this.keyboard.clear();
     this.keyboard.active = true;
     this.fireLatch.arm(); // the button that started the game mustn't also fire
@@ -305,6 +336,9 @@ class Game {
 
   private showSetup(): void {
     this.match = null;
+    this.tracker = null;
+    this.clearUnlocks();
+    this.updateAchievementsButton();
     this.keyboard.active = false;
     show('gameover', false);
     show('hud', false);
@@ -325,6 +359,7 @@ class Game {
   /** Effects and the banner's bookkeeping, for local and online games alike. `viewer` is this player's seat. */
   private playEvent(match: MatchState, event: SimEvent, viewer: string): void {
     const now = performance.now();
+    if (this.tracker) this.unlocks.add(this.tracker.onEvent(match, event));
     this.effects.add(event, now, (id) => colorOf(match, id, viewer), match.config.mortarSplashRadius);
     switch (event.type) {
       case 'roundStarted':
@@ -396,6 +431,7 @@ class Game {
       if (match) {
         this.renderer.draw(match, this.prev, alpha, this.effects, now);
         this.updateHud(match, HUMAN_ID);
+        this.showUnlocks(match);
         const banner = bannerFor(match, now < this.goUntil, this.selfInflicted, this.waveChanges);
         this.showBanner(banner !== null && !this.loop.isPaused ? banner : null);
       } else {
@@ -412,6 +448,8 @@ class Game {
     if (session.gameId !== this.seenGameId) {
       // A new game, or this one picked up again after a drop.
       this.seenGameId = session.gameId;
+      // This game's tracker is made from its first snapshot, which says whether a round is already under way.
+      this.tracker = null;
       this.effects.clear();
       this.selfInflicted = false;
       this.waveChanges = [];
@@ -429,9 +467,11 @@ class Game {
       this.renderer.drawIdle(ARENA);
       return;
     }
+    this.tracker ??= new AchievementTracker(this.book, viewer, state, !session.vsBot);
     for (const event of events) this.playEvent(state, event, viewer);
     this.renderer.draw(state, prev, alpha, this.effects, now);
     this.updateHud(state, viewer);
+    this.showUnlocks(state);
 
     const frozen = freezeText(session, now);
     show('freeze', frozen !== null && !this.resultShown);
@@ -514,6 +554,11 @@ class Game {
   }
 
   private onKeyDown(e: KeyboardEvent): void {
+    if (isShown('achievements') && e.code === 'Escape') {
+      e.preventDefault();
+      this.closeAchievements();
+      return;
+    }
     if (isShown('join')) {
       // Typing a code: W, A, S and D are letters here, not directions.
       if (e.code === 'Escape') this.closeJoin();
@@ -535,6 +580,7 @@ class Game {
       e.code === 'Enter' &&
       !this.driving &&
       !this.menuOpen &&
+      !isShown('achievements') &&
       document.activeElement === document.body &&
       performance.now() >= this.enterLockedUntil
     ) {
@@ -570,6 +616,10 @@ class Game {
       if (!this.menuOpen) return;
     }
 
+    if (isShown('achievements')) {
+      this.onAchievementsAction(action);
+      return;
+    }
     const onJoin = isShown('join');
     const onMenu = this.menuOpen;
     const onSetup = !onJoin && isShown('setup');
@@ -666,6 +716,74 @@ class Game {
     if (this.hudText.get(id) === text) return;
     this.hudText.set(id, text);
     el(id).textContent = text;
+  }
+
+  // --- Achievements ------------------------------------------------------------------------------------------
+
+  /**
+   * Announces what's been earned, once play has stopped: in the pause after a round or wave, or on the result
+   * screen. Nothing is shown during play, and the pause's panel goes when the next round starts.
+   */
+  private showUnlocks(match: MatchState): void {
+    const released = this.unlocks.release(match.phase);
+    if (released.length > 0) {
+      const list = el(match.phase === 'gameOver' ? 'go-unlocks' : 'unlocks');
+      for (const a of released) list.appendChild(unlockItem(a));
+    }
+    const between = el('unlocks');
+    if (match.phase !== 'roundOver' && between.childElementCount > 0) between.replaceChildren();
+    show('unlocks', between.childElementCount > 0);
+    show('go-unlocks', el('go-unlocks').childElementCount > 0);
+  }
+
+  /** A new game, or leaving one: nothing left to announce. */
+  private clearUnlocks(): void {
+    this.unlocks.clear();
+    el('unlocks').replaceChildren();
+    el('go-unlocks').replaceChildren();
+    show('unlocks', false);
+    show('go-unlocks', false);
+  }
+
+  private updateAchievementsButton(): void {
+    el('achievements-open').textContent = achievementsButtonLabel(this.book);
+  }
+
+  private openAchievements(): void {
+    if (this.session) return;
+    const rows = achievementRows(this.book, this.server !== null);
+    el('achievements-list').replaceChildren(...rows.map(achievementItem));
+    el('achievements-count').textContent = `${this.book.earnedCount} of ${ACHIEVEMENTS.length} earned`;
+    el('achievements-note').textContent = storageNote(this.book);
+    show('achievements', true);
+    el('achievements-list').closest('.panel')?.scrollTo({ top: 0 });
+    el('achievements-back').focus();
+  }
+
+  private closeAchievements(): void {
+    show('achievements', false);
+    el('achievements-open').focus();
+  }
+
+  /** The gamepad and arrow keys on the Achievements screen: up and down scroll the list; B, or A on Back, closes. */
+  private onAchievementsAction(action: MenuAction): void {
+    switch (action) {
+      case 'up':
+      case 'down':
+        el('achievements-list')
+          .closest('.panel')
+          ?.scrollBy({ top: action === 'up' ? -LIST_SCROLL_PX : LIST_SCROLL_PX });
+        break;
+      case 'confirm':
+        if (document.activeElement === el('achievements-back')) this.closeAchievements();
+        else el('achievements-back').focus();
+        break;
+      case 'back':
+        this.closeAchievements();
+        break;
+      default:
+        break;
+    }
   }
 
   // --- Online play -------------------------------------------------------------------------------------------
@@ -778,6 +896,7 @@ class Game {
     el('start').setAttribute('aria-disabled', String(!session.guest || setupProblem(this.choices) !== null));
     show('lobby-bot', session.isHost && session.botOffered && !session.guest && !connecting);
     show('lobby-leave', true);
+    show('achievements-open', false);
     if (!setup.contains(document.activeElement) || isHiddenElement(document.activeElement)) {
       firstVisible(session.isHost ? ['start', 'lobby-leave'] : ['lobby-leave'])?.focus();
     }
@@ -797,6 +916,7 @@ class Game {
     show('join-online', this.server !== null);
     show('lobby-bot', false);
     show('lobby-leave', false);
+    show('achievements-open', true);
     show('start', true);
     this.renderer.viewer = HUMAN_ID;
     this.renderAllChoices();
@@ -1049,6 +1169,40 @@ function pollGamepads(): GamepadSnapshot[] {
   } catch {
     return [];
   }
+}
+
+/** One announced unlock: its name, then what earned it. */
+function unlockItem(a: Achievement): HTMLLIElement {
+  const item = document.createElement('li');
+  const name = document.createElement('strong');
+  name.textContent = `Achievement: ${a.name}`;
+  item.append(name, a.description);
+  return item;
+}
+
+/** One line of the Achievements screen: earned ones plain, the rest greyed out (with a mark, not only colour). */
+function achievementItem(row: AchievementRow): HTMLLIElement {
+  const item = document.createElement('li');
+  item.className = row.earned ? 'achievement' : 'achievement locked';
+  const mark = document.createElement('span');
+  mark.className = 'achievement-mark';
+  mark.setAttribute('role', 'img');
+  mark.setAttribute('aria-label', row.earned ? 'Earned' : 'Not earned yet');
+  mark.textContent = row.earned ? '✓' : '·';
+  const text = document.createElement('span');
+  const parts: [string, string][] = [
+    ['achievement-name', row.name],
+    ['achievement-description', row.description],
+  ];
+  if (row.note) parts.push(['achievement-note', row.note]);
+  for (const [className, content] of parts) {
+    const part = document.createElement('span');
+    part.className = className;
+    part.textContent = content;
+    text.append(part);
+  }
+  item.append(mark, text);
+  return item;
 }
 
 /** The setup screen's option rows that are on show, in order, as rows of buttons for gamepad navigation. */

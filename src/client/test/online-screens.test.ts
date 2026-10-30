@@ -89,9 +89,20 @@ describe('game client: hosting and the lobby', () => {
   });
 
   test('the lobby and its dialogs are reachable with the d-pad and arrow keys', () => {
-    expect(main).toContain(
-      "const SETUP_BUTTONS: readonly StageId[] = ['start', 'host-online', 'join-online', 'lobby-bot', 'lobby-leave'];",
-    );
+    const setupButtons = /const SETUP_BUTTONS: readonly StageId\[\] = \[([^\]]*)\]/.exec(main)?.[1] ?? '';
+    expect(
+      setupButtons
+        .split(',')
+        .map((b) => b.trim())
+        .filter(Boolean),
+    ).toEqual([
+      "'start'",
+      "'host-online'",
+      "'join-online'",
+      "'lobby-bot'",
+      "'lobby-leave'",
+      "'achievements-open'",
+    ]);
     expect(main).toContain('[...visibleOptionRows(), visibleButtons(SETUP_BUTTONS)]');
     expect(STAGE_HTML).toMatch(/class="choices lobby-link-row"/);
   });
