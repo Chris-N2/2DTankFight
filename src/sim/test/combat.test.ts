@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { IDLE_INPUT, step } from '../src';
 import { addShell, cfg, count, makeBoard, ofType, place, playing, R, retire, tank, world } from './helpers';
 
 const COOLDOWN_TICKS = Math.round(cfg.fireCooldown * cfg.tickRate);
@@ -179,7 +180,7 @@ describe('simulation: elimination', () => {
     expect(target.alive).toBe(false);
     const elim = ofType(events, 'eliminated');
     expect(elim).toHaveLength(1);
-    expect(elim[0]).toMatchObject({ tankId: 'ai1', byId: 'p1' });
+    expect(elim[0]).toMatchObject({ tankId: 'ai1', byId: 'p1', bankShot: false, slowed: false });
     // Eliminated tanks no longer block or get hit.
     const before = state.shells.length;
     world(state, { p1: { fire: true } });
@@ -248,6 +249,91 @@ describe('simulation: elimination', () => {
     expect(count(events, 'hit')).toBe(2);
     expect(state.shells).toHaveLength(0);
     expect(ofType(events, 'eliminated').map((e) => e.tankId)).toEqual(['ai1']);
+  });
+});
+
+describe('simulation: what the eliminated event reports', () => {
+  test('Bank-shot kill reported', () => {
+    const wall = { x: 400, y: 0, w: 20, h: 600 };
+    const state = playing(makeBoard([wall]));
+    place(state, 'p1', 100, 100, 0);
+    const target = place(state, 'ai1', 300, 300, 0);
+    target.hp = 1;
+    // A shell of p1's heading for the wall, with the target behind it.
+    addShell(state, 380, 300, 0, { ownerId: 'p1' });
+    const events = [];
+    for (let i = 0; i < 30 && target.alive; i++) events.push(...world(state));
+    expect(count(events, 'bounce')).toBe(1);
+    expect(ofType(events, 'eliminated')).toEqual([
+      expect.objectContaining({ tankId: 'ai1', byId: 'p1', bankShot: true }),
+    ]);
+  });
+
+  test('Direct kill reported', () => {
+    const state = playing();
+    place(state, 'p1', 200, 300, 0);
+    const target = place(state, 'ai1', 400, 300, Math.PI);
+    target.hp = 1;
+    const events = world(state, { p1: { fire: true } });
+    for (let i = 0; i < 60 && target.alive; i++) events.push(...world(state));
+    expect(ofType(events, 'eliminated')).toEqual([
+      expect.objectContaining({ tankId: 'ai1', byId: 'p1', bankShot: false }),
+    ]);
+  });
+
+  test('The finishing shell decides', () => {
+    for (const bouncedLast of [true, false]) {
+      const state = playing();
+      const target = place(state, 'ai1', 400, 300, Math.PI);
+      target.hp = 1;
+      retire(state, 'p1');
+      // Two shells arrive in the same tick; the one later in the list hits last.
+      const direct = (): number => addShell(state, 400 - R, 290, 0, { ownerId: 'direct' });
+      const bounced = (): number => addShell(state, 400 - R, 310, 0, { ownerId: 'banker', bounces: 1 });
+      if (bouncedLast) {
+        direct();
+        bounced();
+      } else {
+        bounced();
+        direct();
+      }
+      const elim = ofType(world(state), 'eliminated');
+      expect(elim).toEqual([
+        expect.objectContaining({
+          tankId: 'ai1',
+          byId: bouncedLast ? 'banker' : 'direct',
+          bankShot: bouncedLast,
+        }),
+      ]);
+    }
+  });
+
+  test('Destroyed while bogged down', () => {
+    const state = playing();
+    const target = place(state, 'ai1', 400, 300, Math.PI);
+    target.hp = 1;
+    target.slowTicks = 50;
+    retire(state, 'p1');
+    addShell(state, 400 - R, 300, 0, { ownerId: 'p1' });
+    expect(ofType(world(state), 'eliminated')).toEqual([
+      expect.objectContaining({ tankId: 'ai1', slowed: true }),
+    ]);
+  });
+
+  test('Elimination tick reported', () => {
+    const state = playing();
+    place(state, 'p1', 200, 300, 0);
+    place(state, 'ai1', 600, 300, Math.PI);
+    tank(state, 'p1').hp = 1;
+    tank(state, 'ai1').hp = 1;
+    // A shell about to reach each tank, both in the same tick.
+    addShell(state, 200 - R - 2, 300, 0);
+    addShell(state, 600 - R - 2, 300, 0);
+    // Through the full step, so the match tick moves on as in a real game.
+    const events = step(state, { p1: IDLE_INPUT });
+    const elim = ofType(events, 'eliminated');
+    expect(elim).toHaveLength(2);
+    expect(elim.map((e) => e.tick)).toEqual([state.tick, state.tick]);
   });
 });
 

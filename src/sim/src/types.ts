@@ -315,7 +315,20 @@ export type SimEvent =
       x: number;
       y: number;
     }
-  | { type: 'eliminated'; tankId: string; byId: string; x: number; y: number }
+  | {
+      type: 'eliminated';
+      tankId: string;
+      /** The tank whose shell hit it last in the final tick; the tank itself if nothing did. */
+      byId: string;
+      x: number;
+      y: number;
+      /** The match tick it happened on, so events played back together can still be told apart by tick. */
+      tick: number;
+      /** Whether the shell credited with it had bounced: a bank shot. */
+      bankShot: boolean;
+      /** Whether the tank was slowed by mortar mud at the moment it was eliminated. */
+      slowed: boolean;
+    }
   | { type: 'left'; tankId: string }
   | { type: 'roundEnded'; round: number; outcome: RoundOutcome; scorers: string[]; scores: Scores }
   | {

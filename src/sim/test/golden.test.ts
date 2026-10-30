@@ -19,6 +19,8 @@ import { matchOn, type GameOptions } from './helpers';
 // Re-recorded for two-player-sim: scores became per human and the round and game events gained fields, which the
 // fingerprint includes. Play itself didn't change: the spawns are the same, and a temporary test that mapped the new
 // shapes back to the old ones matched 168 recorded single-player games across every board.
+// Re-recorded for achievements: the eliminated event gained its tick, whether it was a bank shot and whether the tank
+// was slowed. Play didn't change: with those three fields left out, all four runs gave the previous fingerprints.
 
 function scripted(tick: number): TankInput {
   return {
@@ -89,7 +91,7 @@ describe('map selection: golden replay', () => {
         'p1@1130,730 ai1@70,730 ai2@70,70 ai3@600,760 ai4@1130,70',
         'p1@600,760 ai1@1130,730 ai2@70,70 ai3@70,730 ai4@1130,70',
       ],
-      fingerprint: '0b2b83bf',
+      fingerprint: 'f186f044',
     });
   });
 
@@ -112,7 +114,7 @@ describe('map selection: golden replay', () => {
         'p1@70,730 ai1@70,70 ai2@1130,730 ai3@600,760 ai4@1130,70',
         'p1@1130,730 ai1@70,70 ai2@1130,70 ai3@600,760 ai4@70,730',
       ],
-      fingerprint: '274498e6',
+      fingerprint: 'eb0fe04d',
     });
   });
 });
@@ -135,7 +137,7 @@ describe('two players: golden replay', () => {
         'p1@1130,730 p2@600,760 ai1@1130,70 ai2@70,730 ai3@70,70',
         'p1@1130,70 p2@600,760 ai1@1130,730 ai2@70,730 ai3@70,70',
       ],
-      fingerprint: '9f39354f',
+      fingerprint: '2c6917a5',
     });
   });
 
@@ -159,7 +161,7 @@ describe('two players: golden replay', () => {
         'p1@1130,730 p2@1130,70 ai1@70,70 ai2@600,760 ai3@70,730',
         'p1@1130,70 p2@1130,730 ai1@70,70 ai2@600,760 ai3@70,730',
       ],
-      fingerprint: 'd6543c17',
+      fingerprint: 'c036eed6',
     });
   });
 });

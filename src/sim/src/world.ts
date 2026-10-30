@@ -25,12 +25,18 @@ import {
 /** How far a shell is pushed off a surface after bouncing, so it doesn't immediately touch it again. */
 const BOUNCE_NUDGE = 0.01;
 
+/** The last shell to hit a tank this tick: who fired it, and whether it had bounced. */
+interface LastHit {
+  byId: string;
+  bankShot: boolean;
+}
+
 /**
  * Advances the physical world by one tick: tank movement and collisions, shell flight, bounces,
  * hits, mortar landings, new shots, mortar charging and launches, and eliminations. Game rules (rounds, scoring) are handled by the match layer.
  */
 export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[]): void {
-  const lastHitBy: Record<string, string> = {};
+  const lastHitBy: Record<string, LastHit> = {};
 
   for (const tank of state.tanks) {
     if (!tank.alive) continue;
@@ -75,12 +81,16 @@ export function stepWorld(state: MatchState, inputs: InputMap, events: SimEvent[
       tank.alive = false;
       tank.hp = 0;
       tank.mortarCharge = -1;
+      const last = lastHitBy[tank.id];
       events.push({
         type: 'eliminated',
         tankId: tank.id,
-        byId: lastHitBy[tank.id] ?? tank.id,
+        byId: last?.byId ?? tank.id,
         x: tank.x,
         y: tank.y,
+        tick: state.tick,
+        bankShot: last?.bankShot ?? false,
+        slowed: tank.slowTicks > 0,
       });
     }
   }
@@ -139,7 +149,7 @@ function fire(
   state: MatchState,
   tank: TankState,
   events: SimEvent[],
-  lastHitBy: Record<string, string>,
+  lastHitBy: Record<string, LastHit>,
 ): void {
   const cfg = state.config;
   const dirX = Math.cos(tank.heading);
@@ -194,7 +204,7 @@ function moveShell(
   shell: ShellState,
   dist: number,
   events: SimEvent[],
-  lastHitBy: Record<string, string>,
+  lastHitBy: Record<string, LastHit>,
 ): boolean {
   const cfg = state.config;
   const { board } = state;
@@ -261,7 +271,7 @@ function moveShell(
 
     if (hitTank) {
       hitTank.hp -= shell.damage;
-      lastHitBy[hitTank.id] = shell.ownerId;
+      lastHitBy[hitTank.id] = { byId: shell.ownerId, bankShot: shell.bounces > 0 };
       events.push({
         type: 'hit',
         shooterId: shell.ownerId,
