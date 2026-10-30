@@ -67,6 +67,10 @@ These terms SHALL be used throughout:
 - **WHEN** the host plays the server's test bot
 - **THEN** nothing they do in that game earns an achievement
 
+#### Scenario: Refreshing during a bot game
+- **WHEN** the host refreshes the page during a game against the test bot and is let back in
+- **THEN** that game still earns nothing, and neither does "Play again" with the bot
+
 #### Scenario: A dead partner's wave
 - **WHEN** in a two-player Waves game you are destroyed and your partner clears the wave
 - **THEN** you have not cleared that wave for Perfection, Close Shave, Stop Hitting Yourself or Completionist, but
@@ -364,6 +368,9 @@ description, when the round or wave in which it was earned ends: during the paus
 screen if that round ended the game. Achievements earned when the game ends SHALL be announced on the result screen.
 When several are earned together, all of them SHALL be shown.
 
+Achievements earned just before a dropped connection or a refresh are saved, but SHALL NOT have to be announced after
+getting back in; they show on the Achievements screen as usual.
+
 #### Scenario: Earned mid-round
 - **WHEN** you earn Banked in the middle of a round that carries on
 - **THEN** nothing appears until the round ends, and then Banked is announced in the pause after the round
@@ -375,6 +382,10 @@ When several are earned together, all of them SHALL be shown.
 #### Scenario: Several at once
 - **WHEN** clearing wave 1 earns you Surfer, Perfection and Close Shave together
 - **THEN** all three are announced
+
+#### Scenario: Earned, then dropped
+- **WHEN** you earn Banked and your connection drops before the round ends
+- **THEN** Banked stays earned and shows on the Achievements screen, even if it is never announced
 
 ### Requirement: Achievements screen
 The setup screen SHALL have an Achievements button showing how many have been earned (for example "Achievements
@@ -405,3 +416,10 @@ and the next round or wave SHALL count in full.
 #### Scenario: Back from a drop
 - **WHEN** you reconnect halfway through a Last One Standing round and go on to win it without firing
 - **THEN** you do not earn Pacifist for that round, but you can in the next one
+
+#### Scenario: A long stall
+- **WHEN** an online game stalls (a hidden tab, say) past the pause after a round, so the end of the round only
+  arrives once the next round has started
+- **THEN** achievements that depend on how that round ended (winning it, its board for Completionist, armour left,
+  MADness) may be missed, but none is awarded from the next round's state, such as the wrong board or a player who
+  had been destroyed

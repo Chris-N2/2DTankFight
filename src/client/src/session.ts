@@ -107,7 +107,10 @@ export class OnlineSession {
 
   /** Back into the seat this tab held, after a page reload. */
   static rejoin(seat: StoredSeat, deps: SessionDeps): OnlineSession {
-    return new OnlineSession({ t: 'rejoin', code: seat.code, token: seat.token }, deps);
+    const session = new OnlineSession({ t: 'rejoin', code: seat.code, token: seat.token }, deps);
+    // The stored seat remembers whether this was a game against the bot. (The intent goes to the server as it is.)
+    session.vsBot = seat.vsBot === true;
+    return session;
   }
 
   get isHost(): boolean {
@@ -129,9 +132,27 @@ export class OnlineSession {
 
   playBot(): void {
     if (this.isHost && this.phase === 'lobby' && !this.guest && this.botOffered) {
-      this.vsBot = true;
+      this.setVsBot(true);
       this.conn.send({ t: 'bot' });
     }
+  }
+
+  /** Whether the bot is in the second seat, kept with the stored seat so it survives a refresh. */
+  private setVsBot(vsBot: boolean): void {
+    if (this.vsBot === vsBot) return;
+    this.vsBot = vsBot;
+    this.saveSeat();
+  }
+
+  private saveSeat(): void {
+    if (this.seat === null || this.code === null || this.token === null) return;
+    const seat: StoredSeat = {
+      server: this.deps.server,
+      code: this.code,
+      seat: this.seat,
+      token: this.token,
+    };
+    this.deps.store.save(this.vsBot ? { ...seat, vsBot: true } : seat);
   }
 
   playAgain(): void {
@@ -194,7 +215,7 @@ export class OnlineSession {
         this.mirror.reset();
         // A game in progress follows with its board and a snapshot; until then, this is the lobby.
         this.phase = 'lobby';
-        this.deps.store.save({ server: this.deps.server, code: msg.code, seat: msg.seat, token: msg.token });
+        this.saveSeat();
         if (first) this.deps.joined?.();
         break;
       }
@@ -203,7 +224,7 @@ export class OnlineSession {
         // join or rejoin means there's no seat to be had, wherever the player was: back in after a drop included.
         if (this.phase === 'lobby' && !this.awaitingSeat) {
           this.lobbyNote = refusedText(msg.reason, msg.detail);
-          this.vsBot = false;
+          this.setVsBot(false);
         } else if (this.intent.t === 'rejoin' && (msg.reason === 'noSuchGame' || msg.reason === 'invalid')) {
           this.end('The game you were in has ended.');
         } else this.end(refusedText(msg.reason, msg.detail));
@@ -241,7 +262,7 @@ export class OnlineSession {
       case 'lobby':
         this.phase = 'lobby';
         this.guest = msg.guest;
-        this.vsBot = false;
+        this.setVsBot(false);
         this.othersDeadline = null;
         this.resumeAt = null;
         break;

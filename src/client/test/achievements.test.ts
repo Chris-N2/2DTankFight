@@ -786,10 +786,61 @@ describe('achievements: rejoining mid-round', () => {
     ).toContain('pacifist');
   });
 
+  test('Earned, then dropped', () => {
+    const storage = new FakeStorage();
+    const state = los(2, 2);
+    track(state, 'p1', AchievementBook.open(storage)).feed(elim('ai1', 'p1', { bankShot: true }));
+    // The connection drops before the round ends, and the page is reloaded: the unannounced Banked is still there.
+    const reloaded = AchievementBook.open(storage);
+    expect(achievementRows(reloaded, true).find((r) => r.id === 'banked')?.earned).toBe(true);
+  });
+
   test('achievements that need only the moment still count', () => {
     const state = waves();
     state.phase = 'playing';
     expect(track(state).feed(elim('ai1', 'p1', { bankShot: true }))).toContain('banked');
+  });
+});
+
+describe('achievements: after a stall online', () => {
+  // A long stall makes playback jump: a round's end can arrive with the next round's state already in place.
+  test('a wave cleared, seen only once the next wave is under way, still counts for Surfer but nothing that reads the state', () => {
+    const state = waves();
+    const { feed, book } = track(state);
+    state.tanks.find((t) => t.id === 'p1')!.hp = 1;
+    state.round = 2; // the next wave has started
+    state.board = BUILT_IN_BOARDS.find((b) => b.id === 'checkerboard')!;
+    const earned = feed(...killAllAi(state, 'p1'), waveCleared(1));
+    expect(earned).toContain('surfer');
+    for (const id of ['perfection', 'close-shave', 'stop-hitting-yourself']) expect(earned).not.toContain(id);
+    // Nor does the next wave's board get the credit.
+    expect(book.completedKeys.size).toBe(0);
+  });
+
+  test('a round won, seen only once the next round is under way, counts for nothing that reads the state', () => {
+    const state = los(1);
+    const { feed, book } = track(state);
+    state.round = 2;
+    for (const t of state.tanks) t.alive = true; // everyone's back for the next round
+    const earned = feed({
+      type: 'roundEnded',
+      round: 1,
+      outcome: 'human',
+      scorers: ['p1'],
+      scores: scores({ p1: 1 }),
+    });
+    expect(earned).toEqual([]);
+    expect(book.completedKeys.size).toBe(0);
+  });
+
+  test('no MADness from a stale state', () => {
+    const state = los(1);
+    const { feed } = track(state);
+    feed(elim('p1', 'ai1', { tick: 300 }), elim('ai1', 'p1', { tick: 300 }));
+    state.round = 2;
+    expect(
+      feed({ type: 'roundEnded', round: 1, outcome: 'draw', scorers: [], scores: scores({ p1: 0 }) }),
+    ).toEqual([]);
   });
 });
 

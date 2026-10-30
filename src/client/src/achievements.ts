@@ -49,6 +49,12 @@ export interface Moment {
   /** The game started with two humans, even if one has since left. */
   twoPlayer: boolean;
   facts: RoundFacts;
+  /**
+   * The state has already moved on to a later round than the event is about. Online, a long stall makes playback
+   * jump ahead, so a round's end can arrive with the next round's state. Checks that read the state then can't
+   * trust it, and are skipped: better to miss an achievement than award the wrong one.
+   */
+  stale: boolean;
   /** A Last One Standing round has just ended with you as its only scorer, still in play. */
   wonRound: boolean;
   /** A wave has just been cleared with you still in play. */
@@ -100,6 +106,7 @@ function isOpponent(m: Moment, id: string): boolean {
 function mutuallyDestroyed(m: Moment): boolean {
   const { yourEliminationTick, lastEliminationTick } = m.facts;
   return (
+    !m.stale &&
     yourEliminationTick !== null &&
     yourEliminationTick === lastEliminationTick &&
     !m.state.tanks.some((t) => t.alive)
@@ -433,12 +440,16 @@ export class AchievementTracker {
     this.note(state, event);
     const viewer = this.viewer;
     const you = tankOf(state, viewer);
+    const stale =
+      (event.type === 'roundEnded' && state.round !== event.round) ||
+      (event.type === 'waveCleared' && state.round !== event.wave);
     const wonRound =
+      !stale &&
       event.type === 'roundEnded' &&
       event.scorers.length === 1 &&
       event.scorers[0] === viewer &&
       you?.alive === true;
-    const clearedWave = event.type === 'waveCleared' && you?.alive === true;
+    const clearedWave = !stale && event.type === 'waveCleared' && you?.alive === true;
     if (wonRound || clearedWave) this.book.complete(completionKey(state.options.mode, state.board.id));
 
     const twoPlayer = (state.options.humans ?? 1) === 2;
@@ -449,6 +460,7 @@ export class AchievementTracker {
       mode: state.options.mode,
       twoPlayer,
       facts: this.facts,
+      stale,
       wonRound,
       clearedWave,
       completed: this.book.completedKeys,

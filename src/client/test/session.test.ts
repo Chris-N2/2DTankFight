@@ -211,6 +211,33 @@ describe('online play: the lobby', () => {
     expect(t.session.vsBot).toBe(false);
   });
 
+  test('a refresh during a bot game still knows it is one', () => {
+    const t = hosting();
+    t.session.playBot();
+    expect(t.store.seat).toMatchObject({ code: 'KTXW', seat: 'p1', vsBot: true });
+    // The page reloads: a new session from the stored seat.
+    const u = setUp((deps) => OnlineSession.rejoin(t.store.seat!, deps));
+    expect(u.session.vsBot).toBe(true);
+    u.socket().open();
+    // What goes to the server is just the seat's code and token.
+    expect(u.socket().messages).toEqual([{ t: 'hello' }, { t: 'rejoin', code: 'KTXW', token: 'host-token' }]);
+    u.receive(ROOM_HOST, { t: 'board', board: PROVING_GROUND }, { ...SNAP, tick: 900 });
+    expect(u.session).toMatchObject({ phase: 'game', vsBot: true });
+    expect(u.store.seat?.vsBot).toBe(true);
+    // Play again with the bot: a new game, still against the bot.
+    u.receive({ ...SNAP, tick: 0 });
+    expect(u.session).toMatchObject({ phase: 'game', vsBot: true });
+    // Back in the lobby the bot has gone, and the stored seat forgets it.
+    u.receive({ t: 'lobby', guest: false });
+    expect(u.session.vsBot).toBe(false);
+    expect(u.store.seat?.vsBot).toBeUndefined();
+  });
+
+  test('a refresh during a game with a guest is not a bot game', () => {
+    const seat: StoredSeat = { server: SERVER, code: 'KTXW', seat: 'p1', token: 'host-token' };
+    expect(setUp((deps) => OnlineSession.rejoin(seat, deps)).session.vsBot).toBe(false);
+  });
+
   test('a refused bot leaves no mark', () => {
     const t = hosting();
     t.session.playBot();

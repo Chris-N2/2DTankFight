@@ -53,6 +53,6 @@
   (an embedding host's site gets its own set), and that clearing site data loses them. Also note that the server must
   be redeployed for online bank-shot, mud and MADness achievements. Verify the README renders
 - [x] 4.2 Run the full build, lint and test suites and verify they all pass
-- [ ] 4.3 Ask the developer to playtest locally with `npm run dev`: earn Surfer and Taunted, check the unlock panel
+- [x] 4.3 Ask the developer to playtest locally with `npm run dev`: earn Surfer and Taunted, check the unlock panel
   between waves and on the result screen, and open the Achievements screen with the mouse, the keyboard and a gamepad.
   Then suggest `/qa` before `/opsx:archive`

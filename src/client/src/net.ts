@@ -215,6 +215,8 @@ export interface StoredSeat {
   code: string;
   seat: SeatId;
   token: string;
+  /** The host is playing the test bot, so a refresh mid-game still knows not to award achievements. */
+  vsBot?: boolean;
 }
 
 export interface SeatStore {
@@ -237,10 +239,10 @@ export function sessionSeatStore(
       try {
         const value: unknown = JSON.parse(storage().getItem(SEAT_KEY) ?? 'null');
         if (typeof value !== 'object' || value === null) return null;
-        const { server, code, seat, token } = value as Record<string, unknown>;
+        const { server, code, seat, token, vsBot } = value as Record<string, unknown>;
         if (typeof server !== 'string' || typeof code !== 'string' || typeof token !== 'string') return null;
         if (seat !== 'p1' && seat !== 'p2') return null;
-        return { server, code, seat, token };
+        return vsBot === true ? { server, code, seat, token, vsBot } : { server, code, seat, token };
       } catch {
         return null;
       }

@@ -250,6 +250,15 @@ describe('net: the seat store', () => {
     expect(store.load()).toBeNull();
   });
 
+  test('remembers a game against the test bot, and only a real yes', () => {
+    const s = storage();
+    const store = sessionSeatStore(() => s);
+    store.save({ ...SEAT, vsBot: true });
+    expect(store.load()).toEqual({ ...SEAT, vsBot: true });
+    s.data.set(SEAT_KEY, JSON.stringify({ ...SEAT, vsBot: 'yes' }));
+    expect(store.load()).toEqual(SEAT);
+  });
+
   test('ignores anything that is not a seat, and copes with blocked storage', () => {
     const s = storage();
     s.data.set(SEAT_KEY, '{"server":"x","code":"KTXW","seat":"p9","token":"t"}');
