@@ -184,6 +184,14 @@ particular, a tank that fires in a tick SHALL get its shot away even if another 
 destroys it, and a tank reduced to zero hit points SHALL stay in play until the end of the tick, so it still stops any
 other shell that reaches it in that tick.
 
+Besides the eliminated tank and the tank credited with it, the "eliminated" event SHALL report:
+- the **tick** on which the tank was eliminated;
+- whether the shell credited with it (the last to hit the tank in that tick) had **bounced** before hitting, i.e. a
+  bank shot;
+- whether the tank was **slowed** by mortar mud at that moment.
+
+These facts SHALL NOT change what happens in the game; they are there so the client can recognise achievements.
+
 #### Scenario: Tank destroyed
 - **WHEN** a tank with 1 hit point is hit by a shell dealing 1 damage
 - **THEN** the tank is eliminated in that tick and an "eliminated" event is emitted
@@ -204,6 +212,26 @@ other shell that reaches it in that tick.
 #### Scenario: Destroyed tank still stops shells that tick
 - **WHEN** two shells reach a tank with 1 hit point in the same tick
 - **THEN** both shells hit it and are destroyed, and the tank is eliminated at the end of the tick
+
+#### Scenario: Bank-shot kill reported
+- **WHEN** a shell bounces off a wall and then destroys a tank
+- **THEN** the "eliminated" event reports that the finishing shell had bounced
+
+#### Scenario: Direct kill reported
+- **WHEN** a shell that has not bounced destroys a tank
+- **THEN** the "eliminated" event reports that the finishing shell had not bounced
+
+#### Scenario: The finishing shell decides
+- **WHEN** a direct shell and a bounced shell both hit a tank with 1 hit point in the same tick
+- **THEN** the event credits the tank whose shell hit last in that tick, and reports whether that shell had bounced
+
+#### Scenario: Destroyed while bogged down
+- **WHEN** a tank still slowed by mortar mud is destroyed
+- **THEN** the "eliminated" event reports that it was slowed
+
+#### Scenario: Elimination tick reported
+- **WHEN** two tanks are eliminated in the same tick
+- **THEN** both "eliminated" events report the same tick, which is the match's tick when that step ran
 
 ### Requirement: Hit points
 Every tank SHALL have a maximum hit points value and SHALL start each round or wave with that many hit points. By
