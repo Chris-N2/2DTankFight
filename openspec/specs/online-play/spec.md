@@ -1,10 +1,12 @@
+# online-play Specification
+
 ## Purpose
 
 Two people on different machines playing one game: the host sets it up and shares a link or code, the guest joins,
 and they play either mode together over a multiplayer server (see the `game-server` spec), with dropped connections
 forgiven and a rematch a button away.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Hosting a game
 When the host page names a multiplayer server (see the `hosting` spec), the setup screen SHALL offer "Host online
@@ -166,6 +168,10 @@ host chooses. Either player SHALL be able to leave the room instead. If the host
 returned to the setup screen. If the guest leaves, the host SHALL be back in the lobby, waiting for a player, with the
 same code.
 
+If the guest left during the game (on purpose, or because their grace period ran out), the host's result screen
+SHALL NOT offer "Play again". It SHALL say that the other player has left, and offer to go back to the lobby, where
+the host waits for a player with the same code and link.
+
 #### Scenario: Rematch
 - **WHEN** the host chooses "Play again" after an online game
 - **THEN** a new game's countdown starts on both screens with the same options
@@ -173,6 +179,11 @@ same code.
 #### Scenario: The guest heads off
 - **WHEN** the guest leaves after a game
 - **THEN** the host is in the lobby, waiting for a player, with the same code and link
+
+#### Scenario: Nobody to play again with
+- **WHEN** the guest leaves mid-game and the host's result screen shows
+- **THEN** "Play again" isn't offered, the screen says the other player has left, and choosing "Back to the lobby"
+  puts the host in the lobby, waiting for a player, with the same code
 
 ### Requirement: Server trouble
 If the server can't be reached when hosting or joining, or the connection can't be restored, the player SHALL be told

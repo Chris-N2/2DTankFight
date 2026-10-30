@@ -197,6 +197,8 @@ room SHALL stay open with both seats" to:
 I haven't counted this as blocking, because the behaviour is now right and tested. It's a documentation gap that
 should be closed, with the developer's approval, before `/opsx:archive`.
 
+**Update (2026-10-30):** the developer approved both additions, and they're now in the two delta specs as worded above.
+
 ### Minor / suggestions (do not block)
 
 These are unchanged from the first run.

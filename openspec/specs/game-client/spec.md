@@ -15,8 +15,10 @@ offer the starting number of AI tanks. Both modes SHALL offer a Mortars on/off o
 play. Both modes SHALL also offer a Maps option, Random (the default) or Sequence (see *Map picker*). Only the selected
 mode's options SHALL be shown, each with sensible defaults.
 The screen SHALL also show a summary of both keyboard and gamepad controls, a note that the game is best played with
-a gamepad, and a Start button. On the setup and result screens, the arrow keys and W/A/S/D SHALL move around the
-options and buttons as the gamepad's d-pad does, and Enter or Space SHALL select.
+a gamepad, and a Start button. When the host page names a multiplayer server, the screen SHALL also offer "Host online
+game" and "Join a game" (see the `online-play` spec). Without one it SHALL offer neither, and nothing else on the
+screen SHALL change. On the setup and result screens, the arrow keys and W/A/S/D SHALL move around the options and
+buttons as the gamepad's d-pad does, and Enter or Space SHALL select.
 
 #### Scenario: Starting a game
 - **WHEN** the player chooses 2 AI opponents and 3 rounds and presses Start
@@ -48,6 +50,10 @@ options and buttons as the gamepad's d-pad does, and Enter or Space SHALL select
 - **WHEN** the setup or result screen is showing and the player presses the arrow keys or W/A/S/D
 - **THEN** the focus moves between rows and options as it does with the gamepad's d-pad, and Enter or Space selects
   the focused option or button
+
+#### Scenario: Online only with a server
+- **WHEN** the game is on a page that names no multiplayer server
+- **THEN** the setup screen offers neither "Host online game" nor "Join a game"
 
 ### Requirement: Keyboard controls
 The human tank SHALL be driven with either the arrow keys or W/A/S/D (up/W forward, down/S reverse, left/A turn left,
@@ -147,14 +153,15 @@ SHALL control the human tank and the menus.
 
 ### Requirement: Arena rendering
 The client SHALL draw the arena, obstacles, live tanks (showing their heading), shells in flight, and visible effects
-for shots, bounces, hits and eliminations. The arena's floor, grid, obstacles and border SHALL be drawn in the
-theme's colours (see the `theme` spec). Each tank SHALL have a distinct colour. The human's tank SHALL always be drawn
-in the "you" colour, green, whatever the theme, and SHALL be clearly identifiable as "you" by its ring and label.
-Motion SHALL appear smooth regardless of the display's refresh rate, and the arena SHALL scale to fit the browser
-window while keeping its aspect ratio.
+for shots, bounces, hits, friendly hits and eliminations. A friendly hit SHALL look and feel harmless (a small
+ricochet spark, not the hit flash). The arena's floor, grid, obstacles and border SHALL be drawn in the theme's
+colours (see the `theme` spec). Each tank SHALL have a distinct colour. The player's own tank SHALL always be drawn in
+the "you" colour, green, whatever the theme, and SHALL be clearly identifiable as "you" by its ring and label. In an
+online game the other human's tank SHALL always be drawn blue. Motion SHALL appear smooth regardless of the display's
+refresh rate, and the arena SHALL scale to fit the browser window while keeping its aspect ratio.
 
 For mortars, the client SHALL draw:
-- a landing reticle in front of the human's tank while the human charges, showing where the mortar would land if
+- a landing reticle in front of the player's own tank while they charge, showing where the mortar would land if
   released now;
 - each mortar in flight as a shell on an arc above a ground shadow, with a small marker at its landing point;
 - a splash effect where a mortar lands;
@@ -193,10 +200,19 @@ For mortars, the client SHALL draw:
 - **WHEN** a tank is slowed by a mortar
 - **THEN** it is drawn bogged down until the slow ends
 
+#### Scenario: The other human is blue
+- **WHEN** an online game is in play, on either player's screen
+- **THEN** the other human's tank is drawn blue, and only the player's own tank has the "YOU" ring and label
+
+#### Scenario: A harmless clang
+- **WHEN** with friendly fire off one human's shell reaches the other
+- **THEN** a small ricochet is shown where it struck, with no hit flash and no change to the HUD's hit points
+
 ### Requirement: Heads-up display
-During play the client SHALL show the human's current hit points, and, when mortars are on, whether the human's
-mortar is loaded or used. In Last One Standing it SHALL also show the current round number and total rounds, and the
-score (human vs AI). In Waves it SHALL show the current wave number and the number of waves cleared.
+During play the client SHALL show the player's own current hit points, and, when mortars are on, whether their mortar
+is loaded or used. In Last One Standing it SHALL also show the current round number and total rounds, and the score:
+human vs AI in single-player, and the player against the other human ("You N – M Them") online. In Waves it SHALL show
+the current wave number and the number of waves cleared.
 
 #### Scenario: Damage shown
 - **WHEN** the human's tank is hit
@@ -210,6 +226,11 @@ score (human vs AI). In Waves it SHALL show the current wave number and the numb
 - **WHEN** the human launches their mortar
 - **THEN** the HUD changes from showing the mortar loaded to showing it used, and shows it loaded again at the start
   of the next round or wave
+
+#### Scenario: Your own numbers online
+- **WHEN** in an online Last One Standing game the guest has 2 points and the host 1
+- **THEN** the guest's HUD shows "You 2 – 1 Them" and the guest's own hit points, and the host's shows "You 1 – 2 Them"
+  and the host's own hit points
 
 ### Requirement: Round and game flow screens
 The client SHALL show the round-start or wave-start countdown.
@@ -227,6 +248,9 @@ return to the setup screen:
 - **Waves:** the number of waves cleared, and the best number cleared on this device for the same starting number
   of AI tanks and the same mortars setting (either difference makes it a different game). A new best SHALL be
   called out. Bests recorded before mortars existed SHALL count as bests with mortars off.
+
+Online games show their round and game results from each player's point of view, do not record bests, and leave the
+choice of what's next to the host (see the `online-play` spec).
 
 #### Scenario: Next round starts automatically
 - **WHEN** a round ends and the game is not over
@@ -264,10 +288,10 @@ return to the setup screen:
 - **THEN** Waves still plays normally, and the result screen shows the waves cleared without a best
 
 ### Requirement: Pause
-The player SHALL be able to pause and resume with Escape or the gamepad's Start button. The game SHALL also pause
-automatically when the browser tab is hidden, when the window loses focus, or when a gamepad that was in use is
-disconnected. While paused the simulation SHALL NOT advance, and a paused overlay SHALL be shown that says how to
-resume with either device.
+In a single-player game, the player SHALL be able to pause and resume with Escape or the gamepad's Start button. The
+game SHALL also pause automatically when the browser tab is hidden, when the window loses focus, or when a gamepad
+that was in use is disconnected. While paused the simulation SHALL NOT advance, and a paused overlay SHALL be shown
+that says how to resume with either device. Online games never pause (see the `online-play` spec).
 
 #### Scenario: Escape pauses
 - **WHEN** the player presses Escape during a round
@@ -284,6 +308,10 @@ resume with either device.
 #### Scenario: Gamepad disconnect pauses
 - **WHEN** the gamepad the player is using is disconnected mid-round
 - **THEN** the game pauses
+
+#### Scenario: Online games don't pause
+- **WHEN** a player in an online game switches to another tab
+- **THEN** the game carries on, and their own tank gets no input while they're away
 
 ### Requirement: Map picker
 When Maps is set to Sequence, the setup screen SHALL show:

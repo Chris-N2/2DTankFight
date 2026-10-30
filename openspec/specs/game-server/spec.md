@@ -1,10 +1,12 @@
+# game-server Specification
+
 ## Purpose
 
 The optional multiplayer server: it hosts two-player rooms, runs the shared simulation authoritatively (AI included),
 takes only inputs from players, and sends them what to draw. It also forgives dropped connections, and is configured
 and deployed simply enough for anyone running their own copy.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Authoritative simulation
 For every game in progress, the server SHALL run the same simulation code as the single-player client, at the
@@ -134,9 +136,10 @@ While a room is in its lobby:
 
 ### Requirement: Starting and playing again
 When the host starts, the server SHALL create a two-player match from the room's options with a fresh random seed,
-and both players SHALL see the same first countdown. When a game ends, the room SHALL stay open with both seats. The
-host SHALL be able to play again with the same options, or go back to the lobby to change them, and the guest SHALL
-be taken along either way.
+and both players SHALL see the same first countdown. When a game ends, the room SHALL stay open with the seats of the
+players still in it. A player who left during the game has given up their seat, so the host can only go back to the
+lobby until another player joins. The host SHALL be able to play again with the same options, or go back to the lobby
+to change them, and the guest SHALL be taken along either way.
 
 #### Scenario: Play again keeps the room
 - **WHEN** a game ends and the host chooses to play again
