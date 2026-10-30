@@ -71,6 +71,8 @@ export class OnlineSession {
   private readonly conn: ConnectionLike;
   private readonly sender: InputSender;
   private token: string | null = null;
+  /** Asked to create, join or rejoin, and not answered yet: a refusal now is about the seat, not an option. */
+  private awaitingSeat = false;
 
   constructor(
     private intent: Intent,
@@ -159,6 +161,7 @@ export class OnlineSession {
     if (this.code !== null && this.token !== null)
       this.intent = { t: 'rejoin', code: this.code, token: this.token };
     this.conn.send(this.intent);
+    this.awaitingSeat = true;
     this.sender.reset();
   }
 
@@ -176,6 +179,7 @@ export class OnlineSession {
         this.options = msg.options;
         this.guest = msg.guest;
         this.reconnecting = false;
+        this.awaitingSeat = false;
         this.othersDeadline = null;
         this.resumeAt = null;
         this.mirror.setOptions(msg.options);
@@ -187,7 +191,10 @@ export class OnlineSession {
         break;
       }
       case 'refused':
-        if (this.phase === 'lobby') this.lobbyNote = refusedText(msg.reason, msg.detail);
+        // In the lobby, a refusal is the server turning down an option (or the bot). But one that answers a create,
+        // join or rejoin means there's no seat to be had, wherever the player was: back in after a drop included.
+        if (this.phase === 'lobby' && !this.awaitingSeat)
+          this.lobbyNote = refusedText(msg.reason, msg.detail);
         else if (this.intent.t === 'rejoin' && (msg.reason === 'noSuchGame' || msg.reason === 'invalid')) {
           this.end('The game you were in has ended.');
         } else this.end(refusedText(msg.reason, msg.detail));
@@ -209,6 +216,10 @@ export class OnlineSession {
           if (this.options) this.mirror.setOptions(this.options);
         }
         this.mirror.push(msg);
+        // The other human left mid-game (on purpose, or out of time): their seat is empty now, so there's nobody to
+        // play again with until another player joins.
+        if (this.isHost && msg.events.some((e) => e.type === 'left' && e.tankId !== this.seat))
+          this.guest = false;
         break;
       }
       case 'frozen':

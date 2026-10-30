@@ -184,6 +184,24 @@ describe('online play, end to end against the real server', () => {
     await until(() => guest.session.resumeAt !== null, 'the guest’s 3-2-1');
   }, 30_000);
 
+  test('the guest leaving mid-game: the host wins by forfeit, and knows there is nobody to play again with', async () => {
+    server = await startServer({ ...DEFAULTS, port: 0 });
+    const host = player((deps) => OnlineSession.host(LOS, deps));
+    await until(() => host.session.phase === 'lobby', 'the lobby');
+    const guest = player((deps) => OnlineSession.join(host.session.code!, deps));
+    await until(() => host.session.guest, 'the guest');
+    host.session.start();
+    await until(() => guest.session.phase === 'game', 'the game');
+    guest.session.leave();
+    await until(() => host.session.mirror.latest?.phase === 'gameOver', 'the forfeit');
+    expect(host.session.mirror.latest!).toMatchObject({ forfeit: true, winnerId: 'p1' });
+    expect(host.session.guest).toBe(false);
+    host.session.toLobby();
+    await until(() => host.session.phase === 'lobby', 'back to the lobby');
+    const next = player((deps) => OnlineSession.join(host.session.code!, deps));
+    await until(() => next.session.phase === 'lobby' && host.session.guest, 'a new guest with the same code');
+  }, 20_000);
+
   test('the test bot, when the server offers it', async () => {
     server = await startServer({ ...DEFAULTS, port: 0, testBot: true });
     const host = player((deps) =>

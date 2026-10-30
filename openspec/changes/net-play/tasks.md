@@ -85,9 +85,13 @@ Suggested sessions, each ending somewhere checkable:
 
 ## 6. Docs
 
-- [ ] 6.1 README: online play for players; hosting the server with Zip Deploy to App Service (settings and the
+- [x] 6.1 README: online play for players; hosting the server with Zip Deploy to App Service (settings and the
   copy-paste `az webapp deploy` block), Docker, and localhost/LAN; the server tag; a note that rooms don't survive a
   redeploy, and to avoid iframes for online play. Verify: each documented command was run once while writing it.
+  Done: the npm, Compress-Archive and Docker commands were run as written. The developer deployed through the portal
+  steps (also in the README) with `az webapp deploy` in Cloud Shell. The `az webapp create`, `config set` and
+  `appsettings set` lines haven't been run. The real deployment added these to the README: what an origin is, the
+  default domain, Linux having no WebSockets switch, the 503 and log stream, and a site's Content-Security-Policy.
 - [x] 6.2 CLAUDE.md: record the multiplayer split (`two-player-sim` done, `net-play`, then `net-feel`) in the
   suggested change sequence. Verify: the section reads correctly.
 
@@ -97,5 +101,7 @@ Suggested sessions, each ending somewhere checkable:
   all pass, and the existing single-player golden runs are unchanged.
 - [x] 7.2 Local end-to-end: `npm run dev:server` plus `npm run dev`, then a full game in each mode between two browser
   tabs, and one against the test bot, including a refresh mid-game. Verify: the developer plays it and confirms.
-- [ ] 7.3 Deploy to the developer's App Service (new Web App, settings as in the README), point a host page at it,
+- [x] 7.3 Deploy to the developer's App Service (new Web App, settings as in the README), point a host page at it,
   and play one online game for real. Verify: the developer confirms a game was played through the deployed server.
+  Done 2026-10-29: Web App on the developer's Linux plan (Node 22 LTS), host page on norwood-development.co.uk. The
+  developer played across two browsers through the deployed server.

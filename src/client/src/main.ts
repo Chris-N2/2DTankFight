@@ -492,18 +492,23 @@ class Game {
   private setResultButtons(): void {
     const session = this.session;
     const host = session === null || (session.isHost && !session.hostLeft);
-    show('again', host);
+    // The guest left mid-game: nobody to play again with, so the way on is the lobby, to wait for another player.
+    const alone = session !== null && session.isHost && !session.guest;
+    show('again', host && !alone);
     show('settings', host);
-    el('settings').textContent = session ? 'Settings' : 'Change settings';
-    el('again').setAttribute('aria-disabled', String(session !== null && !session.guest));
+    el('settings').textContent = !session ? 'Change settings' : alone ? 'Back to the lobby' : 'Settings';
     show('go-leave', session !== null);
     el('go-leave').textContent = session?.hostLeft ? 'Back to setup' : 'Leave room';
     const wait =
-      session === null || session.isHost
+      session === null
         ? null
-        : session.hostLeft
-          ? 'The host has left.'
-          : 'Waiting for the host to choose what’s next…';
+        : session.isHost
+          ? alone
+            ? 'The other player has left. Wait in the lobby for someone else to join, with the same code.'
+            : null
+          : session.hostLeft
+            ? 'The host has left.'
+            : 'Waiting for the host to choose what’s next…';
     show('go-wait', wait !== null);
     el('go-wait').textContent = wait ?? '';
   }

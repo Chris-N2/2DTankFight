@@ -217,6 +217,27 @@ describe('online play: the lobby', () => {
     expect(t.session.lobbyNote).toBe('Number of AI opponents must be between 1 and 3.');
   });
 
+  test('back after a drop in the lobby, but the room has gone: told so, not left in a dead lobby', () => {
+    const t = hosting();
+    t.socket().drop();
+    t.clock.advance(500);
+    t.socket().open();
+    expect(t.socket().messages.at(-1)).toEqual({ t: 'rejoin', code: 'KTXW', token: 'host-token' });
+    t.receive({ t: 'refused', reason: 'noSuchGame' });
+    expect(t.session).toMatchObject({ phase: 'ended', notice: 'The game you were in has ended.' });
+  });
+
+  test('back after a drop in the lobby, but someone else has the seat: told so', () => {
+    const t = setUp((deps) => OnlineSession.join('KTXW', deps));
+    t.socket().open();
+    t.receive(ROOM_GUEST);
+    t.socket().drop();
+    t.clock.advance(500);
+    t.socket().open();
+    t.receive({ t: 'refused', reason: 'full' });
+    expect(t.session).toMatchObject({ phase: 'ended', notice: 'That game is full.' });
+  });
+
   test('The host leaves', () => {
     const t = setUp((deps) => OnlineSession.join('KTXW', deps));
     t.socket().open();
@@ -373,6 +394,23 @@ describe('online play: after a game', () => {
     t.receive({ t: 'lobby', guest: true }, { t: 'board', board: PROVING_GROUND }, SNAP);
     t.receive({ t: 'lobby', guest: false });
     expect(t.session).toMatchObject({ phase: 'lobby', guest: false, code: 'KTXW' });
+  });
+
+  test('the guest leaving mid-game empties their seat: no playing again until someone joins', () => {
+    const t = hosting();
+    t.receive({ t: 'lobby', guest: true }, { t: 'board', board: PROVING_GROUND }, SNAP);
+    t.receive({
+      ...SNAP,
+      tick: 900,
+      phase: 'gameOver',
+      forfeit: true,
+      events: [{ type: 'left', tankId: 'p2' }],
+    });
+    expect(t.session.guest).toBe(false);
+    t.session.playAgain();
+    expect(t.socket().messages.map((m) => m.t)).not.toContain('playAgain');
+    t.session.toLobby();
+    expect(t.socket().messages.at(-1)).toEqual({ t: 'toLobby' });
   });
 
   test('only the host decides what is next', () => {

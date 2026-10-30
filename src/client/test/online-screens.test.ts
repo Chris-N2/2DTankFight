@@ -157,7 +157,11 @@ describe('game client: online results', () => {
 
   test('Rematch and settings are the host’s; the guest waits, or leaves', () => {
     const buttons = method('setResultButtons');
-    expect(buttons).toContain("show('again', host);");
+    expect(buttons).toContain("show('again', host && !alone);");
+    expect(buttons).toContain('const alone = session !== null && session.isHost && !session.guest;');
+    expect(buttons).toContain(
+      'The other player has left. Wait in the lobby for someone else to join, with the same code.',
+    );
     expect(buttons).toContain("show('settings', host);");
     expect(buttons).toContain("show('go-leave', session !== null);");
     expect(buttons).toContain('Waiting for the host to choose what’s next…');
